@@ -5,19 +5,19 @@ const CATS = ["Cricket","Food & Drinks","Emergency","Events","Equipment","Travel
 const EMOJIS = ["🧢","🎯","⚡","🏏","🌟","🔥","💫","🎮","🦋","🎵","🌈","🎲","🚀","🎸","🏆","🦁","🐯","🦊"];
 
 const INIT = {
-  settings: { monthlyAmount: 200, groupName: "Weekend Squad" },
+  settings: { monthlyAmount: 50, groupName: "Team Kanyarasi" },
   members: [
-    {id:1,name:"Arjun",avatar:"🧢",isAdmin:true},
-    {id:2,name:"Rohit",avatar:"🎯",isAdmin:true},
-    {id:3,name:"Priya",avatar:"⚡",isAdmin:false},
-    {id:4,name:"Dev",avatar:"🏏",isAdmin:false},
-    {id:5,name:"Sneha",avatar:"🌟",isAdmin:false},
-    {id:6,name:"Karan",avatar:"🔥",isAdmin:false},
-    {id:7,name:"Meera",avatar:"💫",isAdmin:false},
-    {id:8,name:"Vikram",avatar:"🎮",isAdmin:false},
-    {id:9,name:"Ananya",avatar:"🦋",isAdmin:false},
-    {id:10,name:"Rahul",avatar:"🎵",isAdmin:false},
-    {id:11,name:"Tanya",avatar:"🌈",isAdmin:false},
+    {id:1,name:"Rich Gedeon",avatar:"🧢",isAdmin:true},
+    {id:2,name:"P.Rahul ",avatar:"🎯",isAdmin:true},
+    {id:3,name:"Santosh",avatar:"⚡",isAdmin:false},
+    {id:4,name:"Saketh",avatar:"🏏",isAdmin:false},
+    {id:5,name:"Ruthvik",avatar:"🌟",isAdmin:false},
+    {id:6,name:"Satya Shreyudh",avatar:"🔥",isAdmin:false},
+    {id:7,name:"Vinay",avatar:"💫",isAdmin:false},
+    {id:8,name:"Abhinav",avatar:"🎮",isAdmin:false},
+    {id:9,name:"Kirtan",avatar:"🦋",isAdmin:false},
+    {id:10,name:"Ram",avatar:"🎵",isAdmin:false},
+    {id:11,name:"Aditya",avatar:"🌈",isAdmin:false},
   ],
   contributions: [
     {id:1,memberId:1,month:"2026-03",amount:200,date:"2026-03-01T10:00:00Z"},
