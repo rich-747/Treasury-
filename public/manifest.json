@@ -1,0 +1,21 @@
+{
+  "name": "Treasury",
+  "short_name": "Treasury",
+  "description": "Friends Together, Funds Together.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4361EE",
+  "theme_color": "#4361EE",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
