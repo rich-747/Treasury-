@@ -557,6 +557,7 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
   };
 
   const leaveGroup=async()=>{if(!window.confirm("Leave this group?"))return;await upGroup({members:members.filter(m=>m.uid!==userProfile.uid)});onBack();};
+  const removeMember=async(uid)=>{await upGroup({members:members.filter(m=>m.uid!==uid)});showT("Member removed");closeModal();};
 
   const saveGroupSettings=async f=>{await upGroup({name:f.name,monthlyAmount:Number(f.amount),icon:f.icon});showT("Group settings saved! ✓");closeModal();};
 
@@ -778,41 +779,62 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
             const paid=paidIds.includes(m.uid);
             const total=(gData.contributions||[]).filter(c=>c.memberId===m.uid).reduce((s,c)=>s+c.amount,0);
             const months=(gData.contributions||[]).filter(c=>c.memberId===m.uid).length;
+            const isMe=m.uid===userProfile.uid;
             return(
-              <div key={m.uid} style={K(C,{padding:"16px 16px"})}>
-                <div style={{display:"flex",alignItems:"center",gap:12}}>
-                  {/* Avatar */}
+              <div key={m.uid} style={K(C,{padding:"14px 16px",marginBottom:10})}>
+                {/* Top row: avatar + name + payment badge */}
+                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:paid?0:10}}>
                   <div style={{position:"relative",flexShrink:0}}>
-                    <div style={{width:50,height:50,borderRadius:16,background:bgs[i%bgs.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,border:`2px solid ${C.border}`}}>{m.avatar}</div>
-                    {m.isAdmin&&<div style={{position:"absolute",bottom:-4,right:-4,background:C.yellow,borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,border:`2px solid ${C.white}`}}>👑</div>}
+                    <div style={{width:46,height:46,borderRadius:15,background:bgs[i%bgs.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:`2px solid ${C.border}`}}>{m.avatar}</div>
+                    {m.isAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#FFD84D",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}}>👑</div>}
                   </div>
-                  {/* Info */}
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                      <span style={{fontWeight:800,color:C.text,fontSize:15}}>{m.name}</span>
-                      {m.uid===userProfile.uid&&<span style={Pl(C,"green")}>you</span>}
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{fontWeight:800,color:C.text,fontSize:15,letterSpacing:-0.3}}>{m.name}</span>
+                      {isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}
+                      {m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}
                     </div>
-                    <div style={{fontSize:11,color:C.textSub,marginTop:2}}>{fmtI(total)} total · {months} month{months!==1?"s":""}</div>
+                    <div style={{fontSize:11,color:C.muted,marginTop:3,fontWeight:600}}>{fmtI(total)} · {months} month{months!==1?"s":""}</div>
                   </div>
-                  {/* Status & Actions */}
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{marginBottom:6}}>
-                      <span style={{...Pl(C,paid?"green":"red"),fontSize:13,padding:"5px 14px"}}>{paid?"✓ Paid":"⏳ Pending"}</span>
+                  {/* Payment status pill — right aligned */}
+                  <div style={{flexShrink:0}}>
+                    <div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:800,background:paid?C.greenLight:C.redLight,color:paid?C.greenDark:C.red,border:`1.5px solid ${paid?C.green+"44":C.red+"44"}`}}>
+                      {paid?<>✓ Paid</>:<>● Unpaid</>}
                     </div>
-                    <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
-                      {!paid&&isAdmin&&(
-                        <button style={{background:C.greenLight,color:C.greenDark,border:`1.5px solid ${C.green}44`,borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}} onClick={()=>markPaid(m.uid)}>Mark Paid</button>
-                      )}
-                      {!paid&&isAdmin&&m.uid!==userProfile.uid&&(
-                        <button style={{background:C.yellowLight,color:"#B37A00",border:`1.5px solid ${C.yellow}44`,borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}} onClick={()=>notifyMember(m)}>🔔 Notify</button>
-                      )}
-                    </div>
-                    {/* Nominate admin — styled clearly */}
-                    {isAdmin&&!m.isAdmin&&currentAdmins.length<maxAdmins&&(
-                      <button style={{display:"flex",alignItems:"center",gap:4,background:C.purpleLight,color:C.purple,border:`1.5px solid ${C.purple}33`,borderRadius:10,padding:"6px 12px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginTop:6}} onClick={()=>nominateAdmin(m.uid)}>👑 Nominate as Admin</button>
-                    )}
                   </div>
                 </div>
+
+                {/* Action row — only shown when admin and relevant */}
+                {isAdmin&&!isMe&&(
+                  <div style={{display:"flex",gap:8,paddingTop:paid?10:0,borderTop:paid?`1px solid ${C.border}`:"none",flexWrap:"wrap"}}>
+                    {!paid&&(
+                      <>
+                        {/* Mark Paid */}
+                        <button
+                          onClick={()=>markPaid(m.uid)}
+                          style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 3px 10px rgba(6,214,160,0.28)",letterSpacing:0.2}}
+                        >✓ Mark Paid</button>
+                        {/* Notify */}
+                        <button
+                          onClick={()=>notifyMember(m)}
+                          style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.yellow}66`,background:C.yellowLight,color:"#A06000",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",letterSpacing:0.2}}
+                        >🔔 Remind</button>
+                      </>
+                    )}
+                    {/* Nominate Admin */}
+                    {!m.isAdmin&&currentAdmins.length<maxAdmins&&(
+                      <button
+                        onClick={()=>nominateAdmin(m.uid)}
+                        style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",letterSpacing:0.2}}
+                      >👑 Make Admin</button>
+                    )}
+                    {/* Remove Member */}
+                    <button
+                      onClick={()=>setModal({type:"removeMember",member:m})}
+                      style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",letterSpacing:0.2,marginLeft:"auto"}}
+                    >✕ Remove</button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1394,6 +1416,67 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
       return <SettingsModal/>;
     }
 
+    // ── Remove Member Confirmation ────────────────────────────
+    if(mtype==="removeMember"){
+      const m=modal.member;
+      return(
+        <Sheet title="Remove Member" emoji="⚠️" onClose={closeModal} C={C}>
+          <div style={{...K(C,{background:C.redLight,border:`1.5px solid ${C.red}33`,marginBottom:20,textAlign:"center",padding:"24px 16px"})}}>
+            <div style={{fontSize:44,marginBottom:10}}>{m.avatar}</div>
+            <div style={{fontWeight:900,color:C.text,fontSize:17,marginBottom:4}}>{m.name}</div>
+            <div style={{fontSize:13,color:C.textSub}}>Will be removed from {gData.name}</div>
+          </div>
+          <div style={{background:C.yellowLight,borderRadius:14,padding:"12px 16px",marginBottom:20,fontSize:13,color:"#B37A00",fontWeight:600}}>
+            ⚠️ This member will lose access immediately. Their payment history will be preserved.
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button style={Bt(C,"gh",{flex:1,padding:"13px"})} onClick={closeModal}>Cancel</button>
+            <button style={Bt(C,"r",{flex:1,padding:"13px"})} className="btn-r" onClick={()=>removeMember(m.uid)}>Remove {m.name.split(" ")[0]}</button>
+          </div>
+        </Sheet>
+      );
+    }
+
+    // ── Announcements Bell Panel ──────────────────────────────
+    if(mtype==="bellPanel"){
+      const announcements=gData.announcements||[];
+      const myNotifs=(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      return(
+        <Sheet title="Notifications" emoji="🔔" onClose={closeModal} C={C} maxH="88vh">
+          {/* Announcements section */}
+          <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>📢 Group Announcements</div>
+          {announcements.length===0&&<div style={{...K(C,{padding:"20px",textAlign:"center",marginBottom:14}),color:C.muted,fontSize:13}}>No announcements yet</div>}
+          {announcements.map((a,i)=>(
+            <div key={a.id} style={{...K(C,{padding:"14px 16px",marginBottom:10}),border:a.pinned?`1.5px solid ${C.yellow}66`:`1px solid ${C.border}`}}>
+              {a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}
+              <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8,fontWeight:500}}>{a.text}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:22,height:22,borderRadius:8,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>{a.memberAvatar}</div>
+                  <span style={{fontSize:11,color:C.textSub,fontWeight:700}}>{a.memberName}</span>
+                  <span style={{fontSize:11,color:C.muted}}>· {fmtDT(a.createdAt)}</span>
+                </div>
+                {(isAdmin||a.memberId===userProfile.uid)&&(
+                  <button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700,padding:"2px 6px"}}>✕</button>
+                )}
+              </div>
+            </div>
+          ))}
+          {/* Personal notifications */}
+          {myNotifs.length>0&&<>
+            <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",margin:"16px 0 10px"}}>🔔 Your Notifications</div>
+            {myNotifs.slice(0,5).map((n,i)=>(
+              <div key={n.id} style={{...K(C,{padding:"12px 14px",marginBottom:8}),opacity:n.read?0.6:1}}>
+                <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.55}}>{n.message}</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:5,fontWeight:600}}>{fmtDT(n.createdAt)}</div>
+              </div>
+            ))}
+          </>}
+          <button style={Bt(C,"p",{width:"100%",padding:"13px",marginTop:8})} className="btn-p" onClick={()=>{closeModal();setModal("announce");}}>📢 Post New Announcement</button>
+        </Sheet>
+      );
+    }
+
     return null;
   };
 
@@ -1402,7 +1485,7 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Plus Jakarta Sans',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:90}}>
       <style>{GS(C,dark)}</style>
 
-      {/* Header — FIX: removed group icon button, kept only settings + announce */}
+      {/* Header */}
       <div style={{background:C.white,padding:"13px 16px 11px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 20px rgba(67,97,238,0.07)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1412,8 +1495,20 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
               <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{userProfile.name} · {fmtI(totalBal)}</div>
             </div>
           </div>
-          {/* Only settings if admin — NO group icon button */}
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {/* Bell icon — announcements + notifications */}
+            {(()=>{
+              const unread=(gData.announcements||[]).length+(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid&&!n.read).length;
+              return(
+                <button
+                  onClick={()=>setModal("bellPanel")}
+                  style={{position:"relative",width:38,height:38,borderRadius:12,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:18,flexShrink:0}}
+                >
+                  🔔
+                  {unread>0&&<div style={{position:"absolute",top:4,right:4,width:15,height:15,borderRadius:"50%",background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.white}`,lineHeight:1}}>{unread>9?"9+":unread}</div>}
+                </button>
+              );
+            })()}
             {isAdmin&&<button onClick={()=>setModal("groupSettings")} style={{background:C.primaryLight,border:"none",borderRadius:12,padding:"7px 12px",color:C.primary,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>⚙️ Settings</button>}
           </div>
         </div>
