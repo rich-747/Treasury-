@@ -654,7 +654,7 @@ function TreasuryApp({group,userProfile,onBack,onUpdateProfile,dark,onToggleDark
                 )}
               </div>
               {!editUPI&&(
-                <div style={{display:"flex",gap:8",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {gData.upiId&&<button onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI ID copied!");}} style={{background:`linear-gradient(135deg,${C.purple},#9B59F5)`,color:"#fff",border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>}
                   {isAdmin&&<button onClick={()=>setEditUPI(true)} style={{background:C.purpleLight,color:C.purple,border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Edit</button>}
                 </div>
