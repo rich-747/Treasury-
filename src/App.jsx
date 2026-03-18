@@ -337,34 +337,92 @@ function AuthScreen({onAuth}){
 
   const clearRecaptcha = () => {
     try{
-      if(window.recaptchaVerifier){ window.recaptchaVerifier.clear(); window.recaptchaVerifier=null; }
+      if(window.recaptchaVerifier){
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+    } catch(e){ console.warn("recaptcha clear:", e); }
+    try{
       const el = document.getElementById("rcap-container");
       if(el) el.innerHTML = "";
-    } catch{}
+    } catch(e){}
   };
 
   const sendOTP = async (isResend=false) => {
-    const fullPhone = `${countryCode}${phone}`;
-    if(phone.length < 7){ setError("Enter a valid phone number"); return; }
+    const cleanPhone = phone.replace(/[\s\-\(\)\.]/g,"");
+    if(cleanPhone.length < 8){
+      setError("Enter a valid phone number — e.g. 9876543210");
+      return;
+    }
+
+    // Build E.164 number — avoid doubling country code
+    let fullPhone;
+    if(cleanPhone.startsWith("0")){
+      // Strip leading 0 (common in India: 09876... → 9876...)
+      fullPhone = `${countryCode}${cleanPhone.slice(1)}`;
+    } else if(cleanPhone.startsWith("+")){
+      fullPhone = cleanPhone; // already has code
+    } else {
+      fullPhone = `${countryCode}${cleanPhone}`;
+    }
+
+    console.log("📱 Attempting OTP to:", fullPhone);
     setLoading(true); setError(""); setOtp(""); setOtpError(false);
+
     try{
+      // Fully destroy any existing recaptcha
       clearRecaptcha();
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, "rcap-container", {
+
+      // Wait a tick so DOM is clean
+      await new Promise(r => setTimeout(r, 150));
+
+      // Create verifier anchored to the div
+      const verifier = new RecaptchaVerifier(auth, "rcap-container", {
         size: "invisible",
-        callback: () => {},
-        "expired-callback": () => { clearRecaptcha(); setError("reCAPTCHA expired. Try again."); }
+        callback: ()=>{ console.log("✅ reCAPTCHA solved"); },
+        "expired-callback": ()=>{ clearRecaptcha(); },
       });
-      const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
+      window.recaptchaVerifier = verifier;
+
+      // Render it (required before signInWithPhoneNumber)
+      await verifier.render();
+      console.log("✅ reCAPTCHA rendered");
+
+      const result = await signInWithPhoneNumber(auth, fullPhone, verifier);
+      window.confirmationResult = result; // keep global ref as backup
       setConfirmResult(result);
       setPhoneStep(2);
       startResendTimer();
-      if(isResend) setSuccess("OTP resent successfully! ✅");
+      if(isResend) setSuccess("OTP resent! ✅");
+      console.log("✅ OTP sent to", fullPhone);
+
     } catch(e){
+      console.error("❌ OTP error:", e.code, e.message);
       clearRecaptcha();
-      if(e.code === "auth/invalid-phone-number") setError("Invalid phone number. Check and try again.");
-      else if(e.code === "auth/too-many-requests") setError("Too many attempts. Please wait a few minutes.");
-      else if(e.code === "auth/quota-exceeded") setError("SMS quota exceeded. Try email login.");
-      else setError("Failed to send OTP. Check your number and try again.");
+
+      const msgs = {
+        "auth/invalid-phone-number":   "❌ Invalid number. Indian numbers should be 10 digits e.g. 9876543210",
+        "auth/too-many-requests":      "⏳ Too many attempts. Please wait 10 minutes and try again.",
+        "auth/quota-exceeded":         "📵 Daily SMS limit hit. Try again tomorrow or use email login.",
+        "auth/captcha-check-failed":   "🔒 Security check failed. Refresh the page and try again.",
+        "auth/missing-phone-number":   "📱 Phone number missing. Enter your number and retry.",
+        "auth/operation-not-allowed":  "🚫 Phone login is not enabled in Firebase. Go to Firebase Console → Authentication → Sign-in Method → Enable Phone.",
+        "auth/network-request-failed": "📡 No internet. Check your connection and try again.",
+        "auth/internal-error":         "⚠️ Firebase server error. This is usually a region/policy issue — see instructions below.",
+        "auth/app-not-authorized":     "🌐 Domain not authorised. Add treasury-self.vercel.app in Firebase Console → Authentication → Settings → Authorised Domains.",
+        "auth/unauthorized-domain":    "🌐 Domain not authorised. Add treasury-self.vercel.app in Firebase Console → Authentication → Settings → Authorised Domains.",
+        "auth/invalid-app-credential":"🔑 reCAPTCHA config error. Refresh the page and try again.",
+        "auth/web-storage-unsupported":"🍪 Enable cookies and browser storage, then retry.",
+        "auth/missing-client-identifier":"🔒 reCAPTCHA failed to load. Disable ad-blockers and retry.",
+      };
+
+      // 400 error → almost always region policy or Phone not enabled
+      const is400 = e.message?.includes("400") || e.code === "auth/internal-error";
+      const extraHint = is400
+        ? "\n\n👉 400 error = Phone Auth not fully set up. Follow the steps shown below."
+        : "";
+
+      setError((msgs[e.code] || `Error: ${e.code || e.message}`) + extraHint);
     }
     setLoading(false);
   };
@@ -473,8 +531,29 @@ function AuthScreen({onAuth}){
             </div>
 
             {error && (
-              <div className="fade-in shake" style={{background:"#FEF0F2",border:"1px solid #EF233C33",borderRadius:14,padding:"11px 14px",marginBottom:16,color:"#EF233C",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
-                <span style={{fontSize:16}}>⚠️</span> {error}
+              <div className="fade-in" style={{marginBottom:16}}>
+                <div style={{background:"#FEF0F2",border:"1px solid #EF233C44",borderRadius:14,padding:"13px 14px",color:"#B0182C",fontSize:13,fontWeight:600,lineHeight:1.6,whiteSpace:"pre-line"}}>
+                  {error}
+                </div>
+                {/* Show setup guide if it's a 400 / config issue */}
+                {(error.includes("400")||error.includes("not enabled")||error.includes("not fully set up")||error.includes("below"))&&(
+                  <div className="fade-in" style={{background:"#F4F7FF",border:"1px solid #4361EE33",borderRadius:14,padding:"16px",marginTop:10}}>
+                    <div style={{fontWeight:900,color:"#4361EE",fontSize:13,marginBottom:12}}>🔧 Fix it in Firebase Console — 3 steps:</div>
+                    {[
+                      ["1","Enable Phone Auth","console.firebase.google.com → Authentication → Sign-in method → Phone → Enable → Save"],
+                      ["2","Allow India region","Authentication → Settings → SMS region policy → Allow → Add India (+91) → Save"],
+                      ["3","Authorised domain","Authentication → Settings → Authorised domains → Add: treasury-self.vercel.app"],
+                    ].map(([n,title,desc])=>(
+                      <div key={n} style={{display:"flex",gap:10,marginBottom:10}}>
+                        <div style={{width:22,height:22,borderRadius:"50%",background:"#4361EE",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,flexShrink:0,marginTop:1}}>{n}</div>
+                        <div><div style={{fontSize:12,fontWeight:800,color:"#0D1B4B"}}>{title}</div><div style={{fontSize:11,color:"#5A6A8A",marginTop:2,lineHeight:1.5}}>{desc}</div></div>
+                      </div>
+                    ))}
+                    <div style={{marginTop:4,padding:"10px 12px",background:"#EEF1FF",borderRadius:10,fontSize:11,color:"#4361EE",fontWeight:700}}>
+                      💡 After making changes, wait ~30 seconds then refresh and try again.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
