@@ -956,8 +956,13 @@ function GroupSwitcher({allGroups,currentGroupId,onSwitch,onGoToGroups,C,onClose
 // ══════════════════════════════════════════════════════════════════
 //  MAIN TREASURY APP
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  MAIN TREASURY APP
+// ══════════════════════════════════════════════════════════════════
 function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpdateProfile,dark,onToggleDark}){
   const C=getC(dark);
+
+  // ── All state at top level (no hooks inside render/modal fns) ──
   const [gData,setGData]=useState(null);
   const [tab,setTab]=useState("dashboard");
   const [modal,setModal]=useState(null);
@@ -966,20 +971,54 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const [editUPI,setEditUPI]=useState(false);
   const [upiVal,setUpiVal]=useState("");
   const [switcherOpen,setSwitcherOpen]=useState(false);
-  // Vote popup — shown on app open when pending votes exist
   const [votePopupOpen,setVotePopupOpen]=useState(false);
   const [votePopupShown,setVotePopupShown]=useState(false);
   const headerRef=useRef(null);
 
+  // Modal-level state — all hoisted here
+  const [mAnnText,setMAnnText]=useState("");
+  const [mAnnPinned,setMAnnPinned]=useState(false);
+  const [mAnnView,setMAnnView]=useState("compose");
+  const [mExpF,setMExpF]=useState({title:"",amount:"",category:"Cricket",description:""});
+  const [mExpStep,setMExpStep]=useState(1);
+  const [mEmgF,setMEmgF]=useState({amount:"",reason:"",details:""});
+  const [mEmgStep,setMEmgStep]=useState(1);
+  const [mChgAmt,setMChgAmt]=useState("");
+  const [mGoalAmt,setMGoalAmt]=useState("");
+  const [mGoalF,setMGoalF]=useState({title:"",target:"",deadline:"",description:""});
+  const [mEvtF,setMEvtF]=useState({title:"",type:"cricket",date:getTodayISO(),time:"06:00",location:"",description:"",budget:""});
+  const [mGrpF,setMGrpF]=useState({name:"",amount:200,icon:"💰"});
+  const [mSearch,setMSearch]=useState("");
+  const [mFilterMonth,setMFilterMonth]=useState("all");
+  const [mFilterType,setMFilterType]=useState("all");
+
   useEffect(()=>{const h=e=>{if(headerRef.current&&!headerRef.current.contains(e.target))setSwitcherOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
   useEffect(()=>{const unsub=onSnapshot(doc(db,"groups",group.id),snap=>{if(snap.exists()){const d={id:snap.id,...snap.data()};setGData(d);setUpiVal(d.upiId||"");}setLoading(false);});return()=>unsub();},[group.id]);
 
+  // Reset modal state when modal closes
+  const closeModal=()=>{
+    setModal(null);
+    setMAnnText("");setMAnnPinned(false);setMAnnView("compose");
+    setMExpF({title:"",amount:"",category:"Cricket",description:""});setMExpStep(1);
+    setMEmgF({amount:"",reason:"",details:""});setMEmgStep(1);
+    setMChgAmt("");setMGoalAmt("");
+    setMGoalF({title:"",target:"",deadline:"",description:""});
+    setMEvtF({title:"",type:"cricket",date:getTodayISO(),time:"06:00",location:"",description:"",budget:""});
+  };
+
+  // Sync group settings form when modal opens
+  useEffect(()=>{
+    if(modal==="groupSettings"&&gData){
+      setMGrpF({name:gData.name,amount:gData.monthlyAmount||200,icon:gData.icon||"💰"});
+    }
+  },[modal]);
+
   const showT=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3200);};
-  const closeModal=()=>setModal(null);
   const upGroup=async data=>{try{await updateDoc(doc(db,"groups",group.id),data);}catch(e){showT("Save failed: "+e.message,"error");}};
 
   if(loading||!gData)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg,flexDirection:"column",gap:16}}><style>{GS(C,dark)}</style><Spin size={42} color={C.primary}/><div style={{color:C.textSub,fontSize:14,fontWeight:600}}>Loading group...</div></div>);
 
+  // ── Computed values ────────────────────────────────────────────
   const thisMonth=getMK();
   const members=gData.members||[];
   const maxAdmins=Math.max(2,Math.ceil(members.length*2/10));
@@ -991,67 +1030,55 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const isAdmin=members.find(m=>m.uid===userProfile.uid)?.isAdmin;
   const currentAdmins=members.filter(m=>m.isAdmin);
 
-  // ── Unified pending votes list (all 6 types) ───────────────────
-  const allVotes = gData.votes||[];
-  const adminVotes = gData.adminVotes||[];
-  const allPendingVotes = [
-    ...(allVotes).filter(v=>v.status==="pending").map(v=>({...v,voteType:"expense"})),
+  // Unified pending votes
+  const allPendingVotes=[
+    ...(gData.votes||[]).filter(v=>v.status==="pending").map(v=>({...v,voteType:"expense"})),
     ...(gData.emergencyRequests||[]).filter(r=>r.status==="pending").map(r=>({...r,voteType:"emergency"})),
-    ...(adminVotes).filter(v=>v.status==="pending").map(v=>({...v,voteType:"admin"})),
+    ...(gData.adminVotes||[]).filter(v=>v.status==="pending").map(v=>({...v,voteType:"admin"})),
     ...(gData.memberRemovalVotes||[]).filter(v=>v.status==="pending").map(v=>({...v,voteType:"removeMember"})),
     ...(gData.goalReleaseVotes||[]).filter(v=>v.status==="pending").map(v=>({...v,voteType:"goalRelease"})),
     ...(gData.monthlyAmountVotes||[]).filter(v=>v.status==="pending").map(v=>({...v,voteType:"monthlyAmount"})),
   ];
-  const pendingCount = allPendingVotes.length;
-  // Votes I haven't cast yet
-  const myPendingVotes = allPendingVotes.filter(v=>{
-    const myApprovals = v.approvals||[];
-    const myRejections = v.rejections||[];
-    return !myApprovals.includes(userProfile.uid) && !myRejections.includes(userProfile.uid) && v.requestedBy!==userProfile.uid && v.memberId!==userProfile.uid;
+  const pendingCount=allPendingVotes.length;
+  const myPendingVotes=allPendingVotes.filter(v=>{
+    const approvals=v.approvals||[];
+    const rejections=v.rejections||[];
+    return !approvals.includes(userProfile.uid)&&!rejections.includes(userProfile.uid)&&v.requestedBy!==userProfile.uid&&v.memberId!==userProfile.uid;
   });
+  const unreadBell=pendingCount+(gData.announcements||[]).length+(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid&&!n.read).length;
 
-  // Show popup once per session when there are pending votes for me
+  // Show popup once per session
   useEffect(()=>{
-    if(!votePopupShown && myPendingVotes.length>0 && !loading){
-      const timer = setTimeout(()=>{setVotePopupOpen(true);setVotePopupShown(true);},800);
-      return()=>clearTimeout(timer);
+    if(!votePopupShown&&myPendingVotes.length>0&&!loading){
+      const t=setTimeout(()=>{setVotePopupOpen(true);setVotePopupShown(true);},800);
+      return()=>clearTimeout(t);
     }
   },[loading,votePopupShown,myPendingVotes.length]);
 
-  const unreadBell = pendingCount + (gData.announcements||[]).length + (gData.notifications||[]).filter(n=>n.toUid===userProfile.uid&&!n.read).length;
-
-  // ── Core actions ───────────────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────────
   const markPaid=async mid=>{if(paidIds.includes(mid)){showT("Already paid!","info");return;}await upGroup({contributions:[...(gData.contributions||[]),{id:gData.nextId,memberId:mid,month:thisMonth,amount:gData.monthlyAmount||200,date:new Date().toISOString(),markedBy:userProfile.uid}],nextId:(gData.nextId||100)+1});showT("Payment marked ✓");};
-  const notifyMember=async m=>{await upGroup({notifications:[...(gData.notifications||[]),{id:(gData.nextId||100)+1,type:"payment_reminder",toUid:m.uid,fromName:userProfile.name,message:`${userProfile.avatar} ${userProfile.name} reminded you to pay ₹${gData.monthlyAmount||200} for ${new Date().toLocaleString("default",{month:"long"})}!`,createdAt:new Date().toISOString(),read:false}],nextId:(gData.nextId||100)+2});showT(`Reminder sent to ${m.name}! 🔔`);};
+  const notifyMember=async m=>{await upGroup({notifications:[...(gData.notifications||[]),{id:(gData.nextId||100)+1,type:"payment_reminder",toUid:m.uid,fromName:userProfile.name,message:`${userProfile.avatar} ${userProfile.name} reminded you to pay ₹${gData.monthlyAmount||200} for ${new Date().toLocaleString("default",{month:"long"})}!`,createdAt:new Date().toISOString(),read:false}],nextId:(gData.nextId||100)+2});showT(`Reminder sent! 🔔`);};
   const addEvent=async f=>{await upGroup({events:[...(gData.events||[]),{id:gData.nextId,title:f.title,type:f.type,date:f.date,time:f.time,location:f.location||"",description:f.description||"",budget:Number(f.budget)||0,createdBy:userProfile.uid,createdByName:userProfile.name,createdByAvatar:userProfile.avatar,createdAt:new Date().toISOString(),rsvp:{yes:[userProfile.uid],no:[],maybe:[]}}],nextId:(gData.nextId||100)+1});showT("Event created! 🎉");closeModal();};
   const rsvp=async(eid,status)=>{const events=(gData.events||[]).map(e=>{if(e.id!==eid)return e;const r={yes:[...e.rsvp.yes],no:[...e.rsvp.no],maybe:[...e.rsvp.maybe]};["yes","no","maybe"].forEach(k=>{r[k]=r[k].filter(x=>x!==userProfile.uid)});r[status].push(userProfile.uid);return{...e,rsvp:r}});await upGroup({events});showT("RSVP updated!");};
   const postAnnounce=async(text,pinned=false)=>{await upGroup({announcements:[{id:gData.nextId,text,pinned,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,createdAt:new Date().toISOString()},...(gData.announcements||[])],nextId:(gData.nextId||100)+1});showT("Posted! 📢");closeModal();};
   const deleteAnnounce=async id=>{await upGroup({announcements:(gData.announcements||[]).filter(a=>a.id!==id)});showT("Deleted");};
   const addGoal=async f=>{await upGroup({savingsGoals:[...(gData.savingsGoals||[]),{id:gData.nextId,title:f.title,target:Number(f.target),deadline:f.deadline,description:f.description||"",createdBy:userProfile.uid,createdAt:new Date().toISOString(),contributions:[]}],nextId:(gData.nextId||100)+1});showT("Goal created! 🎯");closeModal();};
-  const saveGroupSettings=async f=>{await upGroup({name:f.name,monthlyAmount:Number(f.amount),icon:f.icon});showT("Saved! ✓");closeModal();};
-  const saveUPI=async()=>{await upGroup({upiId:upiVal.trim()});setEditUPI(false);showT("UPI ID saved! 💳");};
+  const saveGroupSettings=async f=>{await upGroup({name:f.name,icon:f.icon});showT("Saved! ✓");closeModal();};
+  const saveUPI=async()=>{await upGroup({upiId:upiVal.trim()});setEditUPI(false);showT("UPI saved! 💳");};
   const leaveGroup=async()=>{if(!window.confirm("Leave this group?"))return;await upGroup({members:members.filter(m=>m.uid!==userProfile.uid)});onBack();};
 
-  // ── Vote request creators ──────────────────────────────────────
   const requestVote=(type,payload)=>{
-    // type: expense | emergency | admin | removeMember | goalRelease | monthlyAmount
     const base={id:gData.nextId,requestedBy:userProfile.uid,requestedByName:userProfile.name,requestedByAvatar:userProfile.avatar,createdAt:new Date().toISOString(),approvals:[userProfile.uid],rejections:[],status:"pending"};
-    const maps={
-      expense:       {key:"votes",          item:{...base,...payload}},
-      emergency:     {key:"emergencyRequests",item:{...base,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,...payload}},
-      admin:         {key:"adminVotes",       item:{...base,...payload}},
-      removeMember:  {key:"memberRemovalVotes",item:{...base,...payload}},
-      goalRelease:   {key:"goalReleaseVotes", item:{...base,...payload}},
-      monthlyAmount: {key:"monthlyAmountVotes",item:{...base,...payload}},
-    };
-    const {key,item}=maps[type];
+    const keyMap={expense:"votes",emergency:"emergencyRequests",admin:"adminVotes",removeMember:"memberRemovalVotes",goalRelease:"goalReleaseVotes",monthlyAmount:"monthlyAmountVotes"};
+    const key=keyMap[type];
+    let item={...base,...payload};
+    if(type==="emergency")item={...item,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar};
     upGroup({[key]:[...(gData[key]||[]),item],nextId:(gData.nextId||100)+1});
     showT("Vote request sent to group! 🗳️");
     closeModal();
   };
 
-  // ── Universal vote caster ──────────────────────────────────────
-  const castUniversalVote=async(voteType,voteId,approve)=>{
+  const castVote=async(voteType,voteId,approve)=>{
     const keyMap={expense:"votes",emergency:"emergencyRequests",admin:"adminVotes",removeMember:"memberRemovalVotes",goalRelease:"goalReleaseVotes",monthlyAmount:"monthlyAmountVotes"};
     const key=keyMap[voteType];
     const list=gData[key]||[];
@@ -1064,50 +1091,35 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     });
     const item=updated.find(v=>v.id===voteId);
     let extra={};
-
-    // Side effects on approval
     if(item.status==="approved"){
-      if(voteType==="expense"){
-        const expenses=gData.expenses||[];
-        if(!expenses.find(e=>e.voteId===voteId))
-          extra={expenses:[...expenses,{id:(gData.nextId||100)+1,voteId,title:item.title,amount:item.amount,category:item.category||"Other",date:new Date().toISOString(),status:"approved"}]};
-      }
-      if(voteType==="emergency"){
-        const expenses=gData.expenses||[];
-        if(!expenses.find(e=>e.emergencyId===voteId))
-          extra={expenses:[...expenses,{id:(gData.nextId||100)+1,emergencyId:voteId,title:`🆘 ${item.reason}`,amount:item.amount,category:"Emergency",date:new Date().toISOString(),status:"approved"}]};
-      }
-      if(voteType==="admin"){
-        const updatedMembers=members.map(m=>m.uid===item.nomineeUid?{...m,isAdmin:!item.isRemoval}:m);
-        extra={members:updatedMembers};
-      }
-      if(voteType==="removeMember"){
-        const updatedMembers=members.filter(m=>m.uid!==item.targetUid);
-        extra={members:updatedMembers};
-      }
-      if(voteType==="goalRelease"){
-        const goals=(gData.savingsGoals||[]).map(g=>g.id===item.goalId?{...g,contributions:[...g.contributions,{amount:item.amount,date:new Date().toISOString(),by:"group",byName:"Group Vote"}]}:g);
-        const expenses=gData.expenses||[];
-        extra={savingsGoals:goals,expenses:[...expenses,{id:(gData.nextId||100)+1,goalReleaseId:voteId,title:`🎯 ${item.goalTitle}`,amount:item.amount,category:"Goal",date:new Date().toISOString(),status:"approved"}]};
-      }
-      if(voteType==="monthlyAmount"){
-        extra={monthlyAmount:item.newAmount};
-      }
+      if(voteType==="expense"){const expenses=gData.expenses||[];if(!expenses.find(e=>e.voteId===voteId))extra={expenses:[...expenses,{id:(gData.nextId||100)+1,voteId,title:item.title,amount:item.amount,category:item.category||"Other",date:new Date().toISOString(),status:"approved"}]};}
+      if(voteType==="emergency"){const expenses=gData.expenses||[];if(!expenses.find(e=>e.emergencyId===voteId))extra={expenses:[...expenses,{id:(gData.nextId||100)+1,emergencyId:voteId,title:`🆘 ${item.reason}`,amount:item.amount,category:"Emergency",date:new Date().toISOString(),status:"approved"}]};}
+      if(voteType==="admin"){extra={members:members.map(m=>m.uid===item.nomineeUid?{...m,isAdmin:!item.isRemoval}:m)};}
+      if(voteType==="removeMember"){extra={members:members.filter(m=>m.uid!==item.targetUid)};}
+      if(voteType==="goalRelease"){const goals=(gData.savingsGoals||[]).map(g=>g.id===item.goalId?{...g,contributions:[...g.contributions,{amount:item.amount,date:new Date().toISOString(),by:"group",byName:"Group Vote"}]}:g);const expenses=gData.expenses||[];extra={savingsGoals:goals,expenses:[...expenses,{id:(gData.nextId||100)+1,goalReleaseId:voteId,title:`🎯 ${item.goalTitle}`,amount:item.amount,category:"Goal",date:new Date().toISOString(),status:"approved"}]};}
+      if(voteType==="monthlyAmount"){extra={monthlyAmount:item.newAmount};}
     }
-
     await upGroup({[key]:updated,...extra,nextId:(gData.nextId||100)+1});
-    showT(approve?`Approved ✓`:`Rejected ✗`);
+    showT(approve?"Approved ✓":"Rejected ✗");
   };
 
   const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"events",icon:"🗓️",label:"Events"},{id:"goals",icon:"🎯",label:"Goals"},{id:"txn",icon:"📒",label:"Ledger"},{id:"profile",icon:"👤",label:"Profile"}];
 
+  // ── Tab Content ────────────────────────────────────────────────
   const tabContent=()=>{
+
     if(tab==="profile")return<ProfileTab userProfile={userProfile} onUpdateProfile={onUpdateProfile} dark={dark} onToggleDark={onToggleDark} onBack={onBack} C={C}/>;
+
+    // ── DASHBOARD ─────────────────────────────────────────────
     if(tab==="dashboard"){
-      const tc=(gData.contributions||[]).reduce((s,c)=>s+c.amount,0);const ts=approvedExp.reduce((s,e)=>s+e.amount,0);
+      const tc=(gData.contributions||[]).reduce((s,c)=>s+c.amount,0);
+      const ts=approvedExp.reduce((s,e)=>s+e.amount,0);
       const upcoming=(gData.events||[]).filter(e=>!isEventPast(e.date)).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(0,2);
-      const announcements=gData.announcements||[];const today=now();const dateStr=`${today.getDate()} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+      const announcements=gData.announcements||[];
+      const today=now();const dateStr=`${today.getDate()} ${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+      const expPending=allPendingVotes.filter(v=>v.voteType==="expense");
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
+        {/* Hero */}
         <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,borderRadius:26,padding:"26px 22px",marginBottom:16,position:"relative",overflow:"hidden",boxShadow:"0 14px 44px rgba(67,97,238,0.4)"}}>
           <div style={{position:"absolute",top:-35,right:-35,width:140,height:140,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
           <div style={{position:"relative"}}>
@@ -1120,276 +1132,64 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             <div style={{display:"flex",gap:28,marginTop:18}}>{[["COLLECTED",fmtI(tc),"#A5BAFF"],["SPENT",fmtI(ts),"#FF9BAE"],["MEMBERS",members.length,"#A5E8D9"]].map(([l,v,c])=>(<div key={l}><div style={{fontSize:9,color:"rgba(255,255,255,0.45)",fontWeight:800,letterSpacing:1.5}}>{l}</div><div style={{color:c,fontSize:15,fontWeight:900,marginTop:4}}>{v}</div></div>))}</div>
           </div>
         </div>
+        {/* Invite */}
         <div style={{...K(C),border:`1.5px solid ${C.primaryMid}`,background:dark?C.white:C.primaryLight}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Invite Code</div><div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:5}}>{gData.inviteCode}</div></div>
-            <button onClick={()=>{const msg=`Join "${gData.name}" on Treasury 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join Treasury",text:msg});else{navigator.clipboard.writeText(msg);showT("Invite copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
+            <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
           </div>
         </div>
+        {/* Month dues */}
         <div style={K(C)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:800,color:C.text,fontSize:15}}>📅 {today.toLocaleString("default",{month:"long",year:"numeric"})}</div><span style={Pl(C,paidIds.length===members.length?"green":"blue")}>{paidIds.length}/{members.length} paid</span></div>
-          <div style={{background:C.primaryMid,borderRadius:99,height:10,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${members.length?(paidIds.length/members.length)*100:0}%`,background:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 1s cubic-bezier(0.22,1,0.36,1)"}}/></div>
-          {unpaid.length>0&&<div><div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:6}}>Pending:</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{unpaid.map(m=><span key={m.uid} style={Pl(C,"red")}>{m.avatar} {m.name}</span>)}</div></div>}
-          {unpaid.length===0&&<div style={{display:"flex",alignItems:"center",gap:8,color:C.greenDark,fontSize:13,fontWeight:700}}><span>🎉</span> All members paid this month!</div>}
+          <div style={{background:C.primaryMid,borderRadius:99,height:10,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${members.length?(paidIds.length/members.length)*100:0}%`,background:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 1s"}}/></div>
+          {unpaid.length>0?<div><div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:6}}>Pending:</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{unpaid.map(m=><span key={m.uid} style={Pl(C,"red")}>{m.avatar} {m.name}</span>)}</div></div>:<div style={{display:"flex",alignItems:"center",gap:8,color:C.greenDark,fontSize:13,fontWeight:700}}><span>🎉</span> All paid this month!</div>}
         </div>
+        {/* UPI */}
         <div style={{...K(C),border:`1.5px solid ${C.purpleLight}`,background:dark?C.white:"linear-gradient(135deg,#F3EAFF,#EEF1FF)"}}>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
             <div style={{width:48,height:48,borderRadius:15,background:`linear-gradient(135deg,${C.purple},#9B59F5)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:"0 4px 16px rgba(123,47,190,0.32)",flexShrink:0}}>💳</div>
             <div style={{flex:1}}>
-              {editUPI&&isAdmin?(<><div style={{fontSize:11,color:C.purple,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Edit UPI ID</div><div style={{display:"flex",gap:8}}><input style={{...I(C),marginBottom:0,flex:1,fontSize:13,padding:"9px 12px"}} placeholder="name@bank" value={upiVal} onChange={e=>setUpiVal(e.target.value)}/><button onClick={saveUPI} style={{...Bt(C,"pu",{padding:"9px 14px",fontSize:13,borderRadius:12}),flexShrink:0}} className="btn-p">Save</button><button onClick={()=>{setEditUPI(false);setUpiVal(gData.upiId||"");}} style={{...Bt(C,"gh",{padding:"9px 12px",fontSize:13,borderRadius:12}),flexShrink:0}}>✕</button></div></>):(<><div style={{color:C.purple,fontWeight:800,fontSize:14}}>Pay via UPI</div><div style={{color:"#9B59F5",fontSize:12,marginTop:3,fontWeight:600}}>{gData.upiId||"UPI ID not set"} · {fmtI(gData.monthlyAmount||200)}/month</div></>)}
+              {editUPI&&isAdmin?(<><div style={{fontSize:11,color:C.purple,fontWeight:800,textTransform:"uppercase",marginBottom:6}}>Edit UPI ID</div><div style={{display:"flex",gap:8}}><input style={{...I(C),marginBottom:0,flex:1,fontSize:13,padding:"9px 12px"}} placeholder="name@bank" value={upiVal} onChange={e=>setUpiVal(e.target.value)}/><button onClick={saveUPI} style={{...Bt(C,"pu",{padding:"9px 14px",fontSize:13,borderRadius:12}),flexShrink:0}}>Save</button><button onClick={()=>{setEditUPI(false);setUpiVal(gData.upiId||"");}} style={{...Bt(C,"gh",{padding:"9px 12px",fontSize:13,borderRadius:12}),flexShrink:0}}>✕</button></div></>):(<><div style={{color:C.purple,fontWeight:800,fontSize:14}}>Pay via UPI</div><div style={{color:"#9B59F5",fontSize:12,marginTop:3,fontWeight:600}}>{gData.upiId||"UPI ID not set"} · {fmtI(gData.monthlyAmount||200)}/month</div></>)}
             </div>
-            {!editUPI&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{gData.upiId&&<button onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI ID copied!");}} style={{background:`linear-gradient(135deg,${C.purple},#9B59F5)`,color:"#fff",border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>}{isAdmin&&<button onClick={()=>setEditUPI(true)} style={{background:C.purpleLight,color:C.purple,border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Edit</button>}</div>}
+            {!editUPI&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{gData.upiId&&<button onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI copied!");}} style={{background:`linear-gradient(135deg,${C.purple},#9B59F5)`,color:"#fff",border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Copy</button>}{isAdmin&&<button onClick={()=>setEditUPI(true)} style={{background:C.purpleLight,color:C.purple,border:"none",borderRadius:11,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Edit</button>}</div>}
           </div>
         </div>
-        {upcoming.length>0&&<div style={K(C)}><SH C={C} label="Upcoming Events" action={()=>setTab("events")} actionLabel="See all"/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const daysUntil=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",padding:"10px 12px",background:C.primaryLight,borderRadius:16,marginBottom:8,cursor:"pointer"}} onClick={()=>setTab("events")}><div style={{width:42,height:42,borderRadius:13,background:`${et.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{color:C.text,fontSize:13,fontWeight:800}}>{ev.title}</div><div style={{color:C.textSub,fontSize:11,marginTop:2}}>📅 {fmtD(ev.date)} · ⏰ {ev.time}</div></div><div style={{textAlign:"right",flexShrink:0}}><div style={{...Pl(C,daysUntil<=1?"red":daysUntil<=3?"yellow":"green"),fontSize:11}}>{daysUntil===0?"Today!":daysUntil===1?"Tomorrow":daysUntil+"d away"}</div><div style={{fontSize:10,color:C.muted,marginTop:3}}>{ev.rsvp.yes.length} going</div></div></div>);})}</div>}
-        {announcements.length>0&&<div style={K(C)}><SH C={C} label="📢 Announcements" action={()=>setModal("announce")} actionLabel="+ Post"/>{announcements.slice(0,2).map((a,i)=>(<div key={a.id} style={{borderLeft:`3px solid ${a.pinned?C.yellow:C.primary}`,paddingLeft:14,paddingBottom:i<1?14:0,marginBottom:i<1?14:0,borderBottom:i<1&&announcements.length>1?`1px solid ${C.border}`:""}}>  <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:5}}>{a.text}</div><div style={{display:"flex",gap:8,alignItems:"center",justifyContent:"space-between"}}><div style={{color:C.textSub,fontSize:11,fontWeight:700}}>{a.memberAvatar} {a.memberName||"Member"} · {fmtD(a.createdAt)}</div>{a.pinned&&<span style={{...Pl(C,"yellow"),fontSize:10}}>📌 Pinned</span>}</div></div>))}{announcements.length>2&&<button onClick={()=>setModal("announcements")} style={{...Bt(C,"gh",{width:"100%",padding:"8px",fontSize:12,marginTop:10})}}>View all {announcements.length} announcements</button>}</div>}
-        <div style={{display:"flex",gap:10,marginBottom:14}}><button style={{...Bt(C,"p",{flex:2,padding:"14px 16px",fontSize:14,borderRadius:16})}} className="btn-p" onClick={()=>setModal("announce")}>📢 Post Announcement</button><button style={{...Bt(C,"r",{flex:1,padding:"14px 12px",fontSize:13,borderRadius:16})}} className="btn-r" onClick={()=>setModal("emergency")}>🆘 SOS</button></div>
-        <div style={{display:"flex",gap:10}}><button style={{...Bt(C,"g",{flex:1,padding:"14px",fontSize:14,borderRadius:16})}} className="btn-g" onClick={()=>setModal("addExpense")}>💸 Request Expense</button></div>
-        {pendingVotes.length>0&&<div style={{...K(C,{border:`2px solid ${C.primaryMid}`,cursor:"pointer",background:C.primaryLight,marginTop:14})}} className="lift" onClick={()=>setTab("vote")}><div style={{fontWeight:800,color:C.primary,fontSize:14,marginBottom:10}}>🗳️ {pendingVotes.length} vote{pendingVotes.length>1?"s":""} need your attention!</div>{pendingVotes.slice(0,2).map(v=>(<div key={v.id} style={{padding:"10px 12px",background:C.white,borderRadius:14,marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{color:C.text,fontSize:13,fontWeight:700}}>{v.title}</span><span style={{color:C.primary,fontSize:14,fontWeight:900}}>{fmtI(v.amount)}</span></div><div style={{background:C.primaryMid,borderRadius:99,height:7}}><div style={{height:"100%",width:`${Math.min((v.approvals.length/required)*100,100)}%`,background:C.primary,borderRadius:99}}/></div><div style={{fontSize:11,color:C.textSub,marginTop:4,fontWeight:600}}>{v.approvals.length}/{required} approvals · Tap to vote →</div></div>))}</div>}
+        {/* Upcoming events */}
+        {upcoming.length>0&&<div style={K(C)}><SH C={C} label="Upcoming Events" action={()=>setTab("events")} actionLabel="See all"/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const d=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",padding:"10px 12px",background:C.primaryLight,borderRadius:16,marginBottom:8,cursor:"pointer"}} onClick={()=>setTab("events")}><div style={{width:42,height:42,borderRadius:13,background:`${et.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{color:C.text,fontSize:13,fontWeight:800}}>{ev.title}</div><div style={{color:C.textSub,fontSize:11,marginTop:2}}>📅 {fmtD(ev.date)} · ⏰ {ev.time}</div></div><div style={{...Pl(C,d<=1?"red":d<=3?"yellow":"green"),fontSize:11}}>{d===0?"Today!":d===1?"Tomorrow":d+"d away"}</div></div>);})}</div>}
+        {/* Announcements */}
+        {announcements.length>0&&<div style={K(C)}><SH C={C} label="📢 Announcements" action={()=>setModal("announce")} actionLabel="+ Post"/>{announcements.slice(0,2).map((a,i)=>(<div key={a.id} style={{borderLeft:`3px solid ${a.pinned?C.yellow:C.primary}`,paddingLeft:14,paddingBottom:i<1?14:0,marginBottom:i<1?14:0,borderBottom:i<1&&announcements.length>1?`1px solid ${C.border}`:""}}>  <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:5}}>{a.text}</div><div style={{color:C.textSub,fontSize:11,fontWeight:700}}>{a.memberAvatar} {a.memberName||"Member"} · {fmtD(a.createdAt)}</div></div>))}{announcements.length>2&&<button onClick={()=>setModal("bellPanel")} style={{...Bt(C,"gh",{width:"100%",padding:"8px",fontSize:12,marginTop:10})}}>View all {announcements.length}</button>}</div>}
+        {/* Action buttons */}
+        <div style={{display:"flex",gap:10,marginBottom:10}}>
+          <button style={{...Bt(C,"p",{flex:2,padding:"14px",fontSize:14,borderRadius:16})}} className="btn-p" onClick={()=>setModal("announce")}>📢 Announce</button>
+          <button style={{...Bt(C,"r",{flex:1,padding:"14px",fontSize:13,borderRadius:16})}} className="btn-r" onClick={()=>setModal("emergency")}>🆘 SOS</button>
+        </div>
+        <button style={{...Bt(C,"g",{width:"100%",padding:"14px",fontSize:14,borderRadius:16,marginBottom:10})}} className="btn-g" onClick={()=>setModal("addExpense")}>💸 Request Expense</button>
+        {/* Pending votes teaser */}
+        {expPending.length>0&&<div style={{...K(C,{border:`2px solid ${C.primaryMid}`,cursor:"pointer",background:C.primaryLight}),cursor:"pointer"}} className="lift" onClick={()=>setVotePopupOpen(true)}>
+          <div style={{fontWeight:800,color:C.primary,fontSize:14,marginBottom:10}}>🗳️ {expPending.length} expense vote{expPending.length>1?"s":""} waiting — tap to vote!</div>
+          {expPending.slice(0,2).map(v=>(<div key={v.id} style={{padding:"10px 12px",background:C.white,borderRadius:14,marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{color:C.text,fontSize:13,fontWeight:700}}>{v.title}</span><span style={{color:C.primary,fontSize:14,fontWeight:900}}>{fmtI(v.amount)}</span></div>
+            <div style={{background:C.primaryMid,borderRadius:99,height:7}}><div style={{height:"100%",width:`${Math.min(((v.approvals||[]).length/required)*100,100)}%`,background:C.primary,borderRadius:99}}/></div>
+            <div style={{fontSize:11,color:C.textSub,marginTop:4,fontWeight:600}}>{(v.approvals||[]).length}/{required} approvals</div>
+          </div>))}
+        </div>}
       </div>);
     }
-    // ━━━━ LEDGER / TRANSACTIONS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if(tab==="txn"){
-      // Build unified transaction list from all 4 sources
-      const allTxns = [
-        // 1. Member payments (money IN)
-        ...(gData.contributions||[]).map(c=>{
-          const m = members.find(x=>x.uid===c.memberId);
-          return {
-            id:`c-${c.id}`, type:"payment",
-            icon:"💳", color:C.green, colorLight:C.greenLight,
-            label:`${m?.name||"Member"} paid dues`,
-            subLabel:`${m?.avatar||"👤"} ${MONTHS[new Date(c.date).getMonth()]} ${new Date(c.date).getFullYear()} contribution`,
-            amount:+c.amount, direction:"in",
-            date:c.date, month:c.month||getMK(new Date(c.date)),
-            memberName:m?.name||"Member", memberAvatar:m?.avatar||"👤",
-          };
-        }),
-        // 2. Approved expenses (money OUT)
-        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&!e.emergencyId).map(e=>({
-          id:`e-${e.id}`, type:"expense",
-          icon:"💸", color:C.red, colorLight:C.redLight,
-          label:e.title,
-          subLabel:`${e.category} · Approved by vote`,
-          amount:+e.amount, direction:"out",
-          date:e.date, month:getMK(new Date(e.date)),
-          memberName:"Group", memberAvatar:"🗳️",
-        })),
-        // 3. Emergency releases (money OUT)
-        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&e.emergencyId).map(e=>({
-          id:`em-${e.id}`, type:"emergency",
-          icon:"🆘", color:"#FF6B35", colorLight:"#FFF0E8",
-          label:e.title,
-          subLabel:`Emergency fund release`,
-          amount:+e.amount, direction:"out",
-          date:e.date, month:getMK(new Date(e.date)),
-          memberName:"Emergency", memberAvatar:"🆘",
-        })),
-        // 4. Savings goal contributions (money allocated)
-        ...(gData.savingsGoals||[]).flatMap(g=>
-          (g.contributions||[]).map(c=>{
-            const m = members.find(x=>x.uid===c.by);
-            return {
-              id:`g-${g.id}-${c.date}`, type:"goal",
-              icon:"🎯", color:C.purple, colorLight:C.purpleLight,
-              label:`${g.title}`,
-              subLabel:`${m?.avatar||"👤"} ${m?.name||"Member"} added to goal`,
-              amount:+c.amount, direction:"save",
-              date:c.date, month:getMK(new Date(c.date)),
-              memberName:m?.name||"Member", memberAvatar:m?.avatar||"👤",
-            };
-          })
-        ),
-      ].sort((a,b)=>new Date(b.date)-new Date(a.date));
 
-      // Compute running balance (payments in - expenses out - emergency out)
-      let runBal = 0;
-      const withBal = [...allTxns].reverse().map(t=>{
-        if(t.direction==="in") runBal+=t.amount;
-        else if(t.direction==="out") runBal-=t.amount;
-        return {...t, runningBal:runBal};
-      }).reverse();
-
-      // Summary totals
-      const totalIn  = allTxns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
-      const totalOut = allTxns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
-      const totalSaved = allTxns.filter(t=>t.direction==="save").reduce((s,t)=>s+t.amount,0);
-
-      // All unique months for filter
-      const allMonths = [...new Set(allTxns.map(t=>t.month))].sort((a,b)=>b.localeCompare(a));
-
-      // Inner component with its own state
-      const LedgerView = () => {
-        const [search, setSearch] = useState("");
-        const [filterMonth, setFilterMonth] = useState("all");
-        const [filterType, setFilterType] = useState("all");
-
-        const filtered = withBal.filter(t=>{
-          const matchSearch = !search || t.label.toLowerCase().includes(search.toLowerCase()) || t.memberName.toLowerCase().includes(search.toLowerCase());
-          const matchMonth = filterMonth==="all" || t.month===filterMonth;
-          const matchType = filterType==="all" || t.type===filterType;
-          return matchSearch && matchMonth && matchType;
-        });
-
-        // Group by month for display
-        const grouped = filtered.reduce((acc,t)=>{
-          const key = t.month;
-          if(!acc[key]) acc[key]=[];
-          acc[key].push(t);
-          return acc;
-        },{});
-        const sortedMonths = Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
-
-        const fmtMonth = m => {
-          const [yr,mo] = m.split("-");
-          return `${MONTHS[parseInt(mo)-1]} ${yr}`;
-        };
-
-        const typeFilters = [
-          {v:"all",l:"All",icon:"📋"},
-          {v:"payment",l:"Payments",icon:"💳"},
-          {v:"expense",l:"Expenses",icon:"💸"},
-          {v:"emergency",l:"SOS",icon:"🆘"},
-          {v:"goal",l:"Goals",icon:"🎯"},
-        ];
-
-        return(
-          <div style={{padding:"16px 16px 8px"}} className="fade-up">
-            {/* Header */}
-            <div style={{marginBottom:16}}>
-              <div style={{fontWeight:900,color:C.text,fontSize:20,letterSpacing:-0.5}}>Ledger</div>
-              <div style={{fontSize:12,color:C.textSub,marginTop:2}}>{allTxns.length} transactions · all time</div>
-            </div>
-
-            {/* Summary cards */}
-            <div style={{display:"flex",gap:10,marginBottom:16}}>
-              {[
-                {label:"Total In",val:fmtI(totalIn),icon:"📥",color:C.green,bg:C.greenLight},
-                {label:"Total Out",val:fmtI(totalOut),icon:"📤",color:C.red,bg:C.redLight},
-                {label:"Balance",val:fmtI(totalBal),icon:"💰",color:C.primary,bg:C.primaryLight},
-              ].map(s=>(
-                <div key={s.label} style={{flex:1,background:s.bg,borderRadius:18,padding:"12px 10px",textAlign:"center",border:`1px solid ${s.color}22`}}>
-                  <div style={{fontSize:18,marginBottom:4}}>{s.icon}</div>
-                  <div style={{fontSize:13,fontWeight:900,color:s.color}}>{s.val}</div>
-                  <div style={{fontSize:10,color:s.color,fontWeight:700,opacity:0.7,marginTop:2}}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Search bar */}
-            <div style={{position:"relative",marginBottom:12}}>
-              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:16,pointerEvents:"none"}}>🔍</span>
-              <input
-                style={{...I(C),paddingLeft:42,marginBottom:0}}
-                placeholder="Search transactions..."
-                value={search}
-                onChange={e=>setSearch(e.target.value)}
-              />
-            </div>
-
-            {/* Type filter chips */}
-            <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-              {typeFilters.map(f=>(
-                <button key={f.v} onClick={()=>setFilterType(f.v)}
-                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:99,border:`1.5px solid ${filterType===f.v?C.primary:C.border}`,background:filterType===f.v?C.primaryLight:C.white,color:filterType===f.v?C.primary:C.textSub,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.15s"}}
-                >{f.icon} {f.l}</button>
-              ))}
-            </div>
-
-            {/* Month filter */}
-            <div style={{marginBottom:16}}>
-              <select
-                style={{...I(C),marginBottom:0,fontSize:13}}
-                value={filterMonth}
-                onChange={e=>setFilterMonth(e.target.value)}
-              >
-                <option value="all">📅 All months</option>
-                {allMonths.map(m=><option key={m} value={m}>{fmtMonth(m)}</option>)}
-              </select>
-            </div>
-
-            {/* Empty state */}
-            {filtered.length===0&&(
-              <div style={{...K(C),textAlign:"center",padding:"48px 20px"}}>
-                <div style={{fontSize:48,marginBottom:12}}>📭</div>
-                <div style={{fontWeight:800,color:C.text,fontSize:16,marginBottom:6}}>No transactions found</div>
-                <div style={{color:C.textSub,fontSize:13}}>Try changing your search or filters</div>
-              </div>
-            )}
-
-            {/* Grouped transactions */}
-            {sortedMonths.map(month=>{
-              const txns = grouped[month];
-              const monthIn  = txns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
-              const monthOut = txns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
-              return(
-                <div key={month} style={{marginBottom:20}}>
-                  {/* Month header */}
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                    <div style={{fontSize:13,fontWeight:900,color:C.text}}>{fmtMonth(month)}</div>
-                    <div style={{display:"flex",gap:10}}>
-                      {monthIn>0&&<span style={{fontSize:11,fontWeight:800,color:C.greenDark}}>+{fmtI(monthIn)}</span>}
-                      {monthOut>0&&<span style={{fontSize:11,fontWeight:800,color:C.red}}>-{fmtI(monthOut)}</span>}
-                    </div>
-                  </div>
-
-                  {/* Transaction cards */}
-                  <div style={{background:C.white,borderRadius:20,overflow:"hidden",border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(67,97,238,0.06)"}}>
-                    {txns.map((t,i)=>(
-                      <div key={t.id} style={{
-                        display:"flex",alignItems:"center",gap:12,
-                        padding:"14px 16px",
-                        borderBottom: i<txns.length-1 ? `1px solid ${C.border}` : "none",
-                      }}>
-                        {/* Icon */}
-                        <div style={{
-                          width:42,height:42,borderRadius:14,
-                          background:t.colorLight,
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          fontSize:20,flexShrink:0,
-                          border:`1.5px solid ${t.color}22`,
-                        }}>{t.icon}</div>
-
-                        {/* Details */}
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontWeight:700,color:C.text,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.label}</div>
-                          <div style={{fontSize:11,color:C.muted,marginTop:2,fontWeight:600}}>{t.subLabel}</div>
-                          <div style={{fontSize:10,color:C.muted,marginTop:2,fontWeight:500}}>{fmtD(t.date)}</div>
-                        </div>
-
-                        {/* Amount */}
-                        <div style={{textAlign:"right",flexShrink:0}}>
-                          <div style={{
-                            fontSize:15,fontWeight:900,
-                            color: t.direction==="in"?C.greenDark : t.direction==="out"?C.red : C.purple,
-                          }}>
-                            {t.direction==="in"?"+":t.direction==="out"?"-":"~"}{fmtI(t.amount)}
-                          </div>
-                          <div style={{fontSize:10,color:C.muted,marginTop:3,fontWeight:600}}>
-                            Bal: {fmtI(t.runningBal)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Bottom padding */}
-            <div style={{height:8}}/>
-          </div>
-        );
-      };
-      return <LedgerView/>;
-    }
+    // ── SQUAD ──────────────────────────────────────────────────
     if(tab==="members"){
       const bgs=[C.primaryLight,C.greenLight,C.yellowLight,C.purpleLight,"#FFF0F6",C.redLight];
+      const pendingAdminVotes=allPendingVotes.filter(v=>v.voteType==="admin");
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
         <div style={{display:"flex",gap:10,marginBottom:16}}>{[["👥",members.length,"Members"],["✅",paidIds.length,"Paid this month"],["👑",currentAdmins.length,`Admins (max ${maxAdmins})`]].map(([icon,v,l])=>(<div key={l} style={{flex:1,...K(C,{padding:"12px 10px",textAlign:"center",marginBottom:0})}}><div style={{fontSize:20,marginBottom:4}}>{icon}</div><div style={{fontSize:20,fontWeight:900,color:C.primary}}>{v}</div><div style={{fontSize:10,color:C.textSub,fontWeight:600,marginTop:2}}>{l}</div></div>))}</div>
         {pendingAdminVotes.length>0&&<div style={{...K(C,{background:dark?"#2A1F0A":C.yellowLight,border:`2px solid ${C.yellow}44`,marginBottom:16})}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:34,height:34,borderRadius:11,background:"#FFB70333",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👑</div><div style={{fontWeight:900,color:"#B37A00",fontSize:14}}>Admin Nominations Active</div></div>
-          {pendingAdminVotes.map(v=>{const nom=members.find(m=>m.uid===v.nomineeUid);const myVoted=v.approvals.includes(userProfile.uid);const pct=Math.min((v.approvals.length/required)*100,100);return(<div key={v.id} style={{background:C.white,borderRadius:16,padding:"14px",marginBottom:8}}><div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}><div style={{width:42,height:42,borderRadius:13,background:C.yellowLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{nom?.avatar}</div><div style={{flex:1}}><div style={{fontWeight:800,color:C.text,fontSize:14}}>{nom?.name}</div><div style={{fontSize:12,color:C.textSub}}>Nominated by {v.nominatedByName}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:900,color:"#B37A00"}}>{v.approvals.length}/{required}</div><div style={{fontSize:10,color:C.muted}}>votes</div></div></div><div style={{background:C.primaryMid,borderRadius:99,height:8,overflow:"hidden",marginBottom:10}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${C.yellow},#FFD84D)`,borderRadius:99}}/></div>{myVoted?<div style={{...Pl(C,"green"),width:"100%",justifyContent:"center",padding:"9px 0",fontSize:13}}>✓ You supported this nomination</div>:<button style={{...Bt(C,"y",{width:"100%",padding:"10px",fontSize:13,borderRadius:12,color:"#333"})}} className="btn-y" onClick={()=>voteForAdmin(v.id,true)}>👑 Support Nomination</button>}</div>);})}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:34,height:34,borderRadius:11,background:"#FFB70333",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>👑</div><div style={{fontWeight:900,color:"#B37A00",fontSize:14}}>Admin Vote Pending</div></div>
+          {pendingAdminVotes.map(v=>{const nom=members.find(m=>m.uid===v.nomineeUid);const pct=Math.min(((v.approvals||[]).length/required)*100,100);const myVoted=(v.approvals||[]).includes(userProfile.uid);return(<div key={v.id} style={{background:C.white,borderRadius:16,padding:"14px",marginBottom:8}}>
+            <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}><div style={{width:40,height:40,borderRadius:12,background:C.yellowLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{nom?.avatar}</div><div style={{flex:1}}><div style={{fontWeight:800,color:C.text,fontSize:14}}>{nom?.name}</div><div style={{fontSize:12,color:C.textSub}}>{v.isRemoval?"Remove admin":"Make admin"} · by {v.nominatedByName}</div></div><span style={Pl(C,"yellow")}>{(v.approvals||[]).length}/{required}</span></div>
+            <div style={{background:C.primaryMid,borderRadius:99,height:7,overflow:"hidden",marginBottom:10}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${C.yellow},#FFD84D)`,borderRadius:99}}/></div>
+            {myVoted?<div style={{...Pl(C,"green"),width:"100%",justifyContent:"center",padding:"9px",fontSize:12}}>✓ You voted</div>:<div style={{display:"flex",gap:8}}><button style={Bt(C,"g",{flex:1,padding:"9px",fontSize:12,borderRadius:11})} className="btn-g" onClick={()=>castVote("admin",v.id,true)}>👍 Approve</button><button style={Bt(C,"r",{flex:1,padding:"9px",fontSize:12,borderRadius:11})} className="btn-r" onClick={()=>castVote("admin",v.id,false)}>👎 Reject</button></div>}
+          </div>);})}
         </div>}
         {members.map((m,i)=>{
           const paid=paidIds.includes(m.uid);const total=(gData.contributions||[]).filter(c=>c.memberId===m.uid).reduce((s,c)=>s+c.amount,0);const months=(gData.contributions||[]).filter(c=>c.memberId===m.uid).length;const isMe=m.uid===userProfile.uid;
@@ -1400,192 +1200,314 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                 {m.isAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#FFD84D",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`}}>👑</div>}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <span style={{fontWeight:800,color:C.text,fontSize:15,letterSpacing:-0.3}}>{m.name}</span>
-                  {isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}
-                  {m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}
-                </div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontWeight:800,color:C.text,fontSize:15}}>{m.name}</span>{isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}{m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}</div>
                 <div style={{fontSize:11,color:C.muted,marginTop:3,fontWeight:600}}>{fmtI(total)} · {months} month{months!==1?"s":""}</div>
               </div>
-              <div style={{flexShrink:0}}><div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:800,background:paid?C.greenLight:C.redLight,color:paid?C.greenDark:C.red,border:`1.5px solid ${paid?C.green+"44":C.red+"44"}`}}>{paid?<>✓ Paid</>:<>● Unpaid</>}</div></div>
+              <div style={{flexShrink:0}}><div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:800,background:paid?C.greenLight:C.redLight,color:paid?C.greenDark:C.red,border:`1.5px solid ${paid?C.green+"44":C.red+"44"}`}}>{paid?"✓ Paid":"● Unpaid"}</div></div>
             </div>
-            {isAdmin&&!isMe&&(
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {!paid&&(<><button onClick={()=>markPaid(m.uid)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 3px 10px rgba(6,214,160,0.28)"}}>✓ Mark Paid</button><button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.yellow}66`,background:C.yellowLight,color:"#A06000",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>🔔 Remind</button></>)}
-                {!m.isAdmin&&currentAdmins.length<maxAdmins&&(<button onClick={()=>setModal({type:"adminVote",member:m,isRemoval:false})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>)}
-                {m.isAdmin&&(<button onClick={()=>setModal({type:"adminVote",member:m,isRemoval:true})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>)}
-                <button onClick={()=>setModal({type:"removeMember",member:m})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>
-              </div>
-            )}
+            {isAdmin&&!isMe&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {!paid&&<><button onClick={()=>markPaid(m.uid)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 3px 10px rgba(6,214,160,0.28)"}}>✓ Mark Paid</button><button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.yellow}66`,background:C.yellowLight,color:"#A06000",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>🔔 Remind</button></>}
+              {!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
+              {m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
+              <button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>
+            </div>}
           </div>);
         })}
         <button style={{...Bt(C,"r",{width:"100%",marginTop:4,padding:"13px"})}} className="btn-r" onClick={leaveGroup}>🚪 Leave Group</button>
       </div>);
     }
+
+    // ── EVENTS ────────────────────────────────────────────────
     if(tab==="events"){
-      const allEvents=gData.events||[];const upcoming=allEvents.filter(e=>!isEventPast(e.date)).sort((a,b)=>new Date(a.date)-new Date(b.date));const past=allEvents.filter(e=>isEventPast(e.date)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const allEvents=gData.events||[];
+      const upcoming=allEvents.filter(e=>!isEventPast(e.date)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+      const past=allEvents.filter(e=>isEventPast(e.date)).sort((a,b)=>new Date(b.date)-new Date(a.date));
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><div style={{fontWeight:900,color:C.text,fontSize:18}}>Events</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{upcoming.length} upcoming · {past.length} past</div></div><button style={{...Bt(C,"p",{padding:"10px 18px",fontSize:14})}} className="btn-p" onClick={()=>setModal("addEvent")}>+ Create Event</button></div>
-        {allEvents.length===0&&(<div style={{...K(C),textAlign:"center",padding:"52px 20px"}}><div style={{fontSize:52,marginBottom:14}}>🗓️</div><div style={{fontWeight:900,color:C.text,fontSize:17,marginBottom:8}}>No events yet!</div><div style={{color:C.textSub,fontSize:14,marginBottom:20}}>Plan your next cricket match, trip, or hangout</div><button style={Bt(C,"p",{padding:"12px 24px"})} className="btn-p" onClick={()=>setModal("addEvent")}>Create First Event</button></div>)}
-        {upcoming.length>0&&<><SH C={C} label={`Upcoming (${upcoming.length})`}/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const myRsvp=["yes","no","maybe"].find(k=>ev.rsvp[k].includes(userProfile.uid));const daysUntil=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={K(C,{overflow:"hidden",padding:0,marginBottom:16})}><div style={{background:`linear-gradient(135deg,${et.color}22,${et.color}11)`,borderBottom:`1px solid ${et.color}33`,padding:"14px 16px 12px",display:"flex",gap:12,alignItems:"center"}}><div style={{width:46,height:46,borderRadius:14,background:`${et.color}22`,border:`2px solid ${et.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{fontWeight:900,color:C.text,fontSize:15,marginBottom:3}}>{ev.title}</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><span style={{fontSize:12,color:C.textSub,fontWeight:600}}>📅 {fmtD(ev.date)}</span><span style={{fontSize:12,color:C.textSub,fontWeight:600}}>⏰ {ev.time}</span>{ev.location&&<span style={{fontSize:12,color:C.textSub,fontWeight:600}}>📍 {ev.location}</span>}</div></div><div style={{...Pl(C,daysUntil<=1?"red":daysUntil<=3?"yellow":"blue"),flexShrink:0,fontSize:11}}>{daysUntil===0?"Today!":daysUntil===1?"Tomorrow!":daysUntil+"d left"}</div></div><div style={{padding:"12px 16px"}}>{ev.description&&<div style={{fontSize:13,color:C.textSub,marginBottom:10,lineHeight:1.6}}>{ev.description}</div>}{ev.budget>0&&<div style={{fontSize:12,color:C.primary,fontWeight:700,marginBottom:10}}>💰 Budget: {fmtI(ev.budget)}</div>}<div style={{display:"flex",gap:10,marginBottom:12}}><div style={{flex:1,background:C.greenLight,borderRadius:12,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:C.greenDark}}>{ev.rsvp.yes.length}</div><div style={{fontSize:10,color:C.greenDark,fontWeight:700}}>Going</div></div><div style={{flex:1,background:C.yellowLight,borderRadius:12,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:"#B37A00"}}>{ev.rsvp.maybe.length}</div><div style={{fontSize:10,color:"#B37A00",fontWeight:700}}>Maybe</div></div><div style={{flex:1,background:C.redLight,borderRadius:12,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:C.red}}>{ev.rsvp.no.length}</div><div style={{fontSize:10,color:C.red,fontWeight:700}}>Can't go</div></div></div><div style={{display:"flex",gap:8}}>{[["yes","✅ Going","g"],["maybe","🤔 Maybe","y"],["no","❌ No","r"]].map(([s,l,v])=>(<button key={s} style={{...Bt(C,v,{flex:1,padding:"10px 8px",fontSize:13,borderRadius:12,opacity:myRsvp===s?1:0.7,outline:myRsvp===s?`2px solid ${s==="yes"?C.green:s==="maybe"?C.yellow:C.red}`:"none",outlineOffset:2})}} className={`btn-${v}`} onClick={()=>rsvp(ev.id,s)}>{l}</button>))}</div>{myRsvp&&<div style={{marginTop:8,textAlign:"center",fontSize:11,color:C.textSub,fontWeight:600}}>Your RSVP: {myRsvp==="yes"?"✅ Going":myRsvp==="maybe"?"🤔 Maybe":"❌ Not going"}</div>}</div></div>);})} </>}
-        {past.length>0&&<><SH C={C} label={`Past Events (${past.length})`}/>{past.slice(0,3).map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];return(<div key={ev.id} style={K(C,{opacity:0.6,padding:"12px 14px"})}><div style={{display:"flex",gap:10,alignItems:"center"}}><div style={{width:38,height:38,borderRadius:12,background:`${et.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,fontSize:13}}>{ev.title}</div><div style={{fontSize:11,color:C.textSub,marginTop:2}}>{fmtD(ev.date)} · {ev.rsvp.yes.length} attended</div></div></div></div>);})}</>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><div style={{fontWeight:900,color:C.text,fontSize:18}}>Events</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{upcoming.length} upcoming · {past.length} past</div></div><button style={{...Bt(C,"p",{padding:"10px 18px",fontSize:14})}} className="btn-p" onClick={()=>setModal("addEvent")}>+ Create</button></div>
+        {allEvents.length===0&&<div style={{...K(C),textAlign:"center",padding:"52px 20px"}}><div style={{fontSize:52,marginBottom:14}}>🗓️</div><div style={{fontWeight:900,color:C.text,fontSize:17,marginBottom:8}}>No events yet!</div><button style={Bt(C,"p",{padding:"12px 24px"})} className="btn-p" onClick={()=>setModal("addEvent")}>Create First Event</button></div>}
+        {upcoming.length>0&&<><SH C={C} label={`Upcoming (${upcoming.length})`}/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const myRsvp=["yes","no","maybe"].find(k=>ev.rsvp[k].includes(userProfile.uid));const d=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={K(C,{overflow:"hidden",padding:0,marginBottom:16})}><div style={{background:`linear-gradient(135deg,${et.color}22,${et.color}11)`,borderBottom:`1px solid ${et.color}33`,padding:"14px 16px 12px",display:"flex",gap:12,alignItems:"center"}}><div style={{width:46,height:46,borderRadius:14,background:`${et.color}22`,border:`2px solid ${et.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{fontWeight:900,color:C.text,fontSize:15,marginBottom:3}}>{ev.title}</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><span style={{fontSize:12,color:C.textSub,fontWeight:600}}>📅 {fmtD(ev.date)}</span><span style={{fontSize:12,color:C.textSub,fontWeight:600}}>⏰ {ev.time}</span>{ev.location&&<span style={{fontSize:12,color:C.textSub,fontWeight:600}}>📍 {ev.location}</span>}</div></div><span style={{...Pl(C,d<=1?"red":d<=3?"yellow":"blue"),flexShrink:0,fontSize:11}}>{d===0?"Today!":d===1?"Tomorrow!":d+"d left"}</span></div><div style={{padding:"12px 16px"}}>{ev.description&&<div style={{fontSize:13,color:C.textSub,marginBottom:10,lineHeight:1.6}}>{ev.description}</div>}{ev.budget>0&&<div style={{fontSize:12,color:C.primary,fontWeight:700,marginBottom:10}}>💰 Budget: {fmtI(ev.budget)}</div>}<div style={{display:"flex",gap:10,marginBottom:12}}><div style={{flex:1,background:C.greenLight,borderRadius:12,padding:"8px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:C.greenDark}}>{ev.rsvp.yes.length}</div><div style={{fontSize:10,color:C.greenDark,fontWeight:700}}>Going</div></div><div style={{flex:1,background:C.yellowLight,borderRadius:12,padding:"8px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:"#B37A00"}}>{ev.rsvp.maybe.length}</div><div style={{fontSize:10,color:"#B37A00",fontWeight:700}}>Maybe</div></div><div style={{flex:1,background:C.redLight,borderRadius:12,padding:"8px",textAlign:"center"}}><div style={{fontSize:16,fontWeight:900,color:C.red}}>{ev.rsvp.no.length}</div><div style={{fontSize:10,color:C.red,fontWeight:700}}>No</div></div></div><div style={{display:"flex",gap:8}}>{[["yes","✅ Going","g"],["maybe","🤔 Maybe","y"],["no","❌ No","r"]].map(([s,l,v])=>(<button key={s} style={{...Bt(C,v,{flex:1,padding:"10px 8px",fontSize:13,borderRadius:12,opacity:myRsvp===s?1:0.7,outline:myRsvp===s?`2px solid ${s==="yes"?C.green:s==="maybe"?C.yellow:C.red}`:"none",outlineOffset:2})}} className={`btn-${v}`} onClick={()=>rsvp(ev.id,s)}>{l}</button>))}</div>{myRsvp&&<div style={{marginTop:8,textAlign:"center",fontSize:11,color:C.textSub,fontWeight:600}}>Your RSVP: {myRsvp==="yes"?"✅ Going":myRsvp==="maybe"?"🤔 Maybe":"❌ No"}</div>}</div></div>);})}</>}
+        {past.length>0&&<><SH C={C} label={`Past (${past.length})`}/>{past.slice(0,3).map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];return(<div key={ev.id} style={K(C,{opacity:0.6,padding:"12px 14px"})}><div style={{display:"flex",gap:10,alignItems:"center"}}><div style={{width:38,height:38,borderRadius:12,background:`${et.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{fontWeight:700,color:C.text,fontSize:13}}>{ev.title}</div><div style={{fontSize:11,color:C.textSub,marginTop:2}}>{fmtD(ev.date)} · {ev.rsvp.yes.length} attended</div></div></div></div>);})}</>}
       </div>);
     }
-    if(tab==="vote"){
-      const allVotes=[...(gData.votes||[])].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));const pendingERs=(gData.emergencyRequests||[]).filter(r=>r.status==="pending");
-      return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
-        <div style={{...K(C,{background:dark?"#2A1F0A":C.yellowLight,border:"1.5px solid #FFB70344",marginBottom:16})}}>
-          <div style={{display:"flex",gap:10,alignItems:"center"}}><div style={{fontSize:26}}>⚡</div><div><div style={{fontSize:12,color:"#B37A00",fontWeight:800}}>2/3 Majority Rule</div><div style={{fontSize:13,color:"#7A5000",marginTop:2,fontWeight:600}}>{required} of {members.length} votes needed to approve</div></div></div>
-        </div>
-        {pendingERs.length>0&&<div><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>Emergency Requests</div>{pendingERs.map(r=>{const myA=r.approvals.includes(userProfile.uid);const myR=(r.rejections||[]).includes(userProfile.uid);const pct=Math.min((r.approvals.length/required)*100,100);return(<div key={r.id} style={K(C,{border:"2px solid #EF233C33",background:dark?"#1a0a0a":C.redLight,marginBottom:12})}><div style={{display:"flex",gap:12,marginBottom:10}}><div style={{width:44,height:44,borderRadius:13,background:C.redLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{r.memberAvatar||"👤"}</div><div style={{flex:1}}><div style={{color:C.red,fontWeight:800,fontSize:13}}>{r.memberName||"Member"} needs help</div><div style={{color:C.text,fontSize:13,fontWeight:700,marginTop:2}}>{r.reason}</div>{r.details&&<div style={{color:C.textSub,fontSize:11,marginTop:2}}>{r.details}</div>}</div><div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:18,fontWeight:900,color:C.red}}>{fmtI(r.amount)}</div></div></div><div style={{background:"#EF233C22",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}><div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,#EF233C,#FF6B7A)",borderRadius:99}}/></div><div style={{fontSize:11,color:C.textSub,marginBottom:10,fontWeight:600}}>{r.approvals.length} approved of {required} needed</div>{r.memberId===userProfile.uid?<div style={{...Pl(C,"blue"),justifyContent:"center",padding:"8px",fontSize:12,width:"100%"}}>Your request is pending</div>:<div style={{display:"flex",gap:8}}><button style={{...Bt(C,"g",{flex:1,padding:"10px",fontSize:12,borderRadius:11,opacity:myA?0.5:1})}} className="btn-g" onClick={()=>voteEmergency(r.id,true)}>{myA?"Approved":"Approve"}</button><button style={{...Bt(C,"r",{flex:1,padding:"10px",fontSize:12,borderRadius:11,opacity:myR?0.5:1})}} className="btn-r" onClick={()=>voteEmergency(r.id,false)}>{myR?"Rejected":"Reject"}</button></div>}</div>);})}</div>}
-        {pendingAdminVotes.length>0&&<div><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,marginTop:4}}>Admin Nominations</div>{pendingAdminVotes.map(v=>{const nom=members.find(m=>m.uid===v.nomineeUid);const pct=Math.min((v.approvals.length/required)*100,100);return(<div key={v.id} style={K(C,{border:"1.5px solid #FFB70344",background:dark?"#1a1400":C.yellowLight,marginBottom:12})}><div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}><div style={{width:44,height:44,borderRadius:13,background:C.yellowLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{nom&&nom.avatar}</div><div style={{flex:1}}><div style={{fontWeight:800,color:C.text,fontSize:14}}>{nom&&nom.name}</div><div style={{fontSize:11,color:C.textSub}}>Nominated by {v.nominatedByName}</div></div><span style={Pl(C,"yellow")}>{v.approvals.length}/{required}</span></div><div style={{background:"#FFB70333",borderRadius:99,height:7,overflow:"hidden",marginBottom:10}}><div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,#FFB703,#FFD84D)",borderRadius:99}}/></div>{v.approvals.includes(userProfile.uid)?<div style={{...Pl(C,"green"),justifyContent:"center",padding:"9px",fontSize:12,width:"100%"}}>You supported this</div>:<button style={{...Bt(C,"y",{width:"100%",padding:"10px",fontSize:13,borderRadius:11,color:"#333"})}} className="btn-y" onClick={()=>voteForAdmin(v.id,true)}>Support as Admin</button>}</div>);})}</div>}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,marginTop:4}}><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase"}}>Expense Votes ({allVotes.length})</div><button onClick={()=>setModal("addExpense")} style={{...Bt(C,"gh",{padding:"5px 12px",fontSize:12,borderRadius:10})}}>+ Request</button></div>
-        {allVotes.length===0&&<div style={{...K(C),textAlign:"center",padding:"36px 20px"}}><div style={{fontSize:40,marginBottom:10}}>🗳️</div><div style={{color:C.muted,fontSize:14,fontWeight:600}}>No expense votes yet</div></div>}
-        {allVotes.map(v=>{const pct=Math.min((v.approvals.length/required)*100,100);const myVote=v.approvals.includes(userProfile.uid)?"approved":v.rejections.includes(userProfile.uid)?"rejected":null;return(<div key={v.id} style={{...K(C,{cursor:"pointer"})}} className="lift" onClick={()=>setModal({type:"voteDetail",vote:v})}><div style={{display:"flex",gap:12,marginBottom:10}}><div style={{width:42,height:42,borderRadius:13,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,fontWeight:900,color:C.primary}}>Rs</div><div style={{flex:1}}><div style={{fontWeight:800,color:C.text,fontSize:14}}>{v.title}</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{v.category} · {fmtD(v.createdAt)}</div></div><div style={{textAlign:"right",flexShrink:0}}><div style={{color:C.primary,fontWeight:900,fontSize:16}}>{fmtI(v.amount)}</div><span style={Pl(C,v.status==="approved"?"green":v.status==="rejected"?"red":"yellow")}>{v.status}</span></div></div><div style={{background:C.primaryMid,borderRadius:99,height:7,overflow:"hidden",marginBottom:7}}><div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+C.primary+",#7B9EFF)",borderRadius:99}}/></div><div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSub,fontWeight:600}}><span>👍 {v.approvals.length} · 👎 {v.rejections.length} · Need {required}</span>{myVote&&<span style={{color:myVote==="approved"?C.greenDark:C.red}}>You: {myVote}</span>}{!myVote&&v.status==="pending"&&<span style={{color:C.primary}}>Tap to vote →</span>}</div></div>);})}
-      </div>);
-    }
+
+    // ── GOALS ─────────────────────────────────────────────────
     if(tab==="goals"){
       const goals=gData.savingsGoals||[];
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><div style={{fontWeight:900,color:C.text,fontSize:18}}>Savings Goals</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{goals.length} goal{goals.length!==1?"s":""} created</div></div><button style={{...Bt(C,"p",{padding:"10px 18px",fontSize:14})}} className="btn-p" onClick={()=>setModal("addGoal")}>+ New Goal</button></div>
-        {goals.length===0&&<div style={{...K(C),textAlign:"center",padding:"52px 20px"}}><div style={{fontSize:52,marginBottom:14}}>🎯</div><div style={{fontWeight:900,color:C.text,fontSize:17,marginBottom:8}}>No savings goals yet!</div><div style={{color:C.textSub,fontSize:14,marginBottom:20}}>Create a goal for your next trip or equipment!</div><button style={Bt(C,"p",{padding:"12px 24px"})} className="btn-p" onClick={()=>setModal("addGoal")}>Create First Goal</button></div>}
-        {goals.map(g=>{const raised=g.contributions.reduce((s,c)=>s+c.amount,0);const pct=Math.min((raised/g.target)*100,100);const done=raised>=g.target;const daysLeft=Math.ceil((new Date(g.deadline)-now())/(1000*60*60*24));const recent=g.contributions.slice(-3).reverse();return(<div key={g.id} style={K(C,{border:done?`2px solid ${C.green}`:undefined})}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}><div style={{flex:1}}><div style={{fontWeight:900,color:C.text,fontSize:16,marginBottom:4}}>{g.title}</div>{g.description&&<div style={{fontSize:12,color:C.textSub,marginBottom:4}}>{g.description}</div>}<div style={{fontSize:11,color:daysLeft<0?C.red:daysLeft<7?C.yellow:C.textSub,fontWeight:700}}>{daysLeft<0?"Deadline passed":daysLeft===0?"Due today!":daysLeft===1?"Due tomorrow":daysLeft<7?`${daysLeft} days left`:`Deadline: ${fmtD(g.deadline)}`}</div></div>{done?<span style={{...Pl(C,"green"),fontSize:13,padding:"6px 14px"}}>🎉 Complete!</span>:<span style={Pl(C,daysLeft<3?"red":daysLeft<7?"yellow":"blue")}>{pct.toFixed(0)}%</span>}</div><div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:900,marginBottom:8}}><span style={{color:done?C.green:C.primary}}>{fmtI(raised)}</span><span style={{color:C.muted,fontSize:13,fontWeight:600}}>{fmtI(g.target)}</span></div><div style={{background:C.primaryMid,borderRadius:99,height:14,overflow:"hidden",marginBottom:12,position:"relative"}}><div style={{height:"100%",width:`${pct}%`,background:done?`linear-gradient(90deg,${C.green},#5EF0CA)`:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 1s"}}/>{pct>15&&<div style={{position:"absolute",top:0,left:`${Math.min(pct-2,95)}%`,transform:"translateX(-50%)",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:"#fff"}}>{pct.toFixed(0)}%</div>}</div>{recent.length>0&&<div style={{marginBottom:12}}><div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Recent</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{recent.map((c,i)=><span key={i} style={{...Pl(C,"green"),fontSize:11}}>{fmtI(c.amount)} by {c.byName||"Member"}</span>)}</div></div>}{!done&&<button style={{...Bt(C,"p",{width:"100%",padding:"12px",borderRadius:12})}} className="btn-p" onClick={()=>setModal({type:"fundGoal",goal:g})}>💰 Add Funds</button>}</div>);})}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div><div style={{fontWeight:900,color:C.text,fontSize:18}}>Savings Goals</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{goals.length} goal{goals.length!==1?"s":""}</div></div><button style={{...Bt(C,"p",{padding:"10px 18px",fontSize:14})}} className="btn-p" onClick={()=>setModal("addGoal")}>+ New Goal</button></div>
+        {goals.length===0&&<div style={{...K(C),textAlign:"center",padding:"52px 20px"}}><div style={{fontSize:52,marginBottom:14}}>🎯</div><div style={{fontWeight:900,color:C.text,fontSize:17,marginBottom:8}}>No goals yet!</div><button style={Bt(C,"p",{padding:"12px 24px"})} className="btn-p" onClick={()=>setModal("addGoal")}>Create First Goal</button></div>}
+        {goals.map(g=>{const raised=g.contributions.reduce((s,c)=>s+c.amount,0);const pct=Math.min((raised/g.target)*100,100);const done=raised>=g.target;const daysLeft=Math.ceil((new Date(g.deadline)-now())/(1000*60*60*24));const recent=g.contributions.slice(-3).reverse();return(<div key={g.id} style={K(C,{border:done?`2px solid ${C.green}`:undefined})}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div style={{flex:1}}><div style={{fontWeight:900,color:C.text,fontSize:16,marginBottom:4}}>{g.title}</div>{g.description&&<div style={{fontSize:12,color:C.textSub,marginBottom:4}}>{g.description}</div>}<div style={{fontSize:11,color:daysLeft<0?C.red:daysLeft<7?C.yellow:C.textSub,fontWeight:700}}>{daysLeft<0?"Deadline passed":daysLeft===0?"Due today!":daysLeft===1?"Due tomorrow":daysLeft<7?`${daysLeft} days left`:`Deadline: ${fmtD(g.deadline)}`}</div></div>
+            {done?<span style={{...Pl(C,"green"),fontSize:13,padding:"6px 14px"}}>🎉 Complete!</span>:<span style={Pl(C,daysLeft<3?"red":daysLeft<7?"yellow":"blue")}>{pct.toFixed(0)}%</span>}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:15,fontWeight:900,marginBottom:8}}><span style={{color:done?C.green:C.primary}}>{fmtI(raised)}</span><span style={{color:C.muted,fontSize:13,fontWeight:600}}>{fmtI(g.target)}</span></div>
+          <div style={{background:C.primaryMid,borderRadius:99,height:14,overflow:"hidden",marginBottom:12,position:"relative"}}><div style={{height:"100%",width:`${pct}%`,background:done?`linear-gradient(90deg,${C.green},#5EF0CA)`:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 1s"}}/>{pct>15&&<div style={{position:"absolute",top:0,left:`${Math.min(pct-2,95)}%`,transform:"translateX(-50%)",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:"#fff"}}>{pct.toFixed(0)}%</div>}</div>
+          {recent.length>0&&<div style={{marginBottom:12}}><div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>Recent</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{recent.map((c,i)=><span key={i} style={{...Pl(C,"green"),fontSize:11}}>{fmtI(c.amount)} by {c.byName||"Member"}</span>)}</div></div>}
+          {!done&&<button style={{...Bt(C,"p",{width:"100%",padding:"12px",borderRadius:12})}} className="btn-p" onClick={()=>setModal({type:"fundGoal",goal:g})}>🗳️ Request Fund Release</button>}
+        </div>);})}
+      </div>);
+    }
+
+    // ── LEDGER ────────────────────────────────────────────────
+    if(tab==="txn"){
+      const allTxns=[
+        ...(gData.contributions||[]).map(c=>{const m=members.find(x=>x.uid===c.memberId);return{id:`c-${c.id}`,type:"payment",icon:"💳",color:C.green,colorLight:C.greenLight,label:`${m?.name||"Member"} paid dues`,subLabel:`${m?.avatar||"👤"} ${MONTHS[new Date(c.date).getMonth()]} contribution`,amount:+c.amount,direction:"in",date:c.date,month:c.month||getMK(new Date(c.date)),memberName:m?.name||"Member"};}),
+        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&!e.emergencyId&&!e.goalReleaseId).map(e=>({id:`e-${e.id}`,type:"expense",icon:"💸",color:C.red,colorLight:C.redLight,label:e.title,subLabel:`${e.category} · Approved by vote`,amount:+e.amount,direction:"out",date:e.date,month:getMK(new Date(e.date)),memberName:"Group"})),
+        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&e.emergencyId).map(e=>({id:`em-${e.id}`,type:"emergency",icon:"🆘",color:"#FF6B35",colorLight:"#FFF0E8",label:e.title,subLabel:"Emergency fund release",amount:+e.amount,direction:"out",date:e.date,month:getMK(new Date(e.date)),memberName:"Emergency"})),
+        ...(gData.savingsGoals||[]).flatMap(g=>(g.contributions||[]).map(c=>{const m=members.find(x=>x.uid===c.by);return{id:`g-${g.id}-${c.date}`,type:"goal",icon:"🎯",color:C.purple,colorLight:C.purpleLight,label:g.title,subLabel:`${m?.avatar||"👤"} ${m?.name||"Member"} added`,amount:+c.amount,direction:"save",date:c.date,month:getMK(new Date(c.date)),memberName:m?.name||"Member"};})),
+      ].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+      let runBal=0;
+      const withBal=[...allTxns].reverse().map(t=>{if(t.direction==="in")runBal+=t.amount;else if(t.direction==="out")runBal-=t.amount;return{...t,runningBal:runBal};}).reverse();
+      const totalIn=allTxns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
+      const totalOut=allTxns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
+      const allMonths=[...new Set(allTxns.map(t=>t.month))].sort((a,b)=>b.localeCompare(a));
+
+      const filtered=withBal.filter(t=>{
+        const matchSearch=!mSearch||t.label.toLowerCase().includes(mSearch.toLowerCase())||t.memberName.toLowerCase().includes(mSearch.toLowerCase());
+        const matchMonth=mFilterMonth==="all"||t.month===mFilterMonth;
+        const matchType=mFilterType==="all"||t.type===mFilterType;
+        return matchSearch&&matchMonth&&matchType;
+      });
+      const grouped=filtered.reduce((acc,t)=>{if(!acc[t.month])acc[t.month]=[];acc[t.month].push(t);return acc;},{});
+      const sortedMonths=Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+      const fmtMonth=m=>{const[yr,mo]=m.split("-");return`${MONTHS[parseInt(mo)-1]} ${yr}`;};
+
+      return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
+        <div style={{marginBottom:16}}><div style={{fontWeight:900,color:C.text,fontSize:20}}>Ledger</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{allTxns.length} transactions</div></div>
+        <div style={{display:"flex",gap:10,marginBottom:16}}>{[{label:"Total In",val:fmtI(totalIn),icon:"📥",color:C.green,bg:C.greenLight},{label:"Total Out",val:fmtI(totalOut),icon:"📤",color:C.red,bg:C.redLight},{label:"Balance",val:fmtI(totalBal),icon:"💰",color:C.primary,bg:C.primaryLight}].map(s=>(<div key={s.label} style={{flex:1,background:s.bg,borderRadius:18,padding:"12px 10px",textAlign:"center",border:`1px solid ${s.color}22`}}><div style={{fontSize:18,marginBottom:4}}>{s.icon}</div><div style={{fontSize:13,fontWeight:900,color:s.color}}>{s.val}</div><div style={{fontSize:10,color:s.color,fontWeight:700,opacity:0.7,marginTop:2}}>{s.label}</div></div>))}</div>
+        <div style={{position:"relative",marginBottom:12}}><span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:16,pointerEvents:"none"}}>🔍</span><input style={{...I(C),paddingLeft:42,marginBottom:0}} placeholder="Search transactions..." value={mSearch} onChange={e=>setMSearch(e.target.value)}/></div>
+        <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>{[{v:"all",l:"All",icon:"📋"},{v:"payment",l:"Payments",icon:"💳"},{v:"expense",l:"Expenses",icon:"💸"},{v:"emergency",l:"SOS",icon:"🆘"},{v:"goal",l:"Goals",icon:"🎯"}].map(f=>(<button key={f.v} onClick={()=>setMFilterType(f.v)} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:99,border:`1.5px solid ${mFilterType===f.v?C.primary:C.border}`,background:mFilterType===f.v?C.primaryLight:C.white,color:mFilterType===f.v?C.primary:C.textSub,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>{f.icon} {f.l}</button>))}</div>
+        <select style={{...I(C),marginBottom:16,fontSize:13}} value={mFilterMonth} onChange={e=>setMFilterMonth(e.target.value)}><option value="all">📅 All months</option>{allMonths.map(m=><option key={m} value={m}>{fmtMonth(m)}</option>)}</select>
+        {filtered.length===0&&<div style={{...K(C),textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:48,marginBottom:12}}>📭</div><div style={{fontWeight:800,color:C.text,fontSize:16}}>No transactions found</div></div>}
+        {sortedMonths.map(month=>{
+          const txns=grouped[month];
+          const mIn=txns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
+          const mOut=txns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
+          return(<div key={month} style={{marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:13,fontWeight:900,color:C.text}}>{fmtMonth(month)}</div><div style={{display:"flex",gap:10}}>{mIn>0&&<span style={{fontSize:11,fontWeight:800,color:C.greenDark}}>+{fmtI(mIn)}</span>}{mOut>0&&<span style={{fontSize:11,fontWeight:800,color:C.red}}>-{fmtI(mOut)}</span>}</div></div>
+            <div style={{background:C.white,borderRadius:20,overflow:"hidden",border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(67,97,238,0.06)"}}>
+              {txns.map((t,i)=>(<div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:i<txns.length-1?`1px solid ${C.border}`:"none"}}>
+                <div style={{width:42,height:42,borderRadius:14,background:t.colorLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,border:`1.5px solid ${t.color}22`}}>{t.icon}</div>
+                <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,color:C.text,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.label}</div><div style={{fontSize:11,color:C.muted,marginTop:2,fontWeight:600}}>{t.subLabel}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>{fmtD(t.date)}</div></div>
+                <div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:15,fontWeight:900,color:t.direction==="in"?C.greenDark:t.direction==="out"?C.red:C.purple}}>{t.direction==="in"?"+":t.direction==="out"?"-":"~"}{fmtI(t.amount)}</div><div style={{fontSize:10,color:C.muted,marginTop:3,fontWeight:600}}>Bal: {fmtI(t.runningBal)}</div></div>
+              </div>))}
+            </div>
+          </div>);
+        })}
       </div>);
     }
   };
 
-  // ── Vote Popup — shown on app open ────────────────────────────
-  const VotePopup=()=>{
+  // ── Modals (no hooks inside — all state hoisted above) ─────────
+  const renderModal=()=>{
+    if(!modal)return null;
+    const mtype=typeof modal==="string"?modal:modal.type;
+
+    if(mtype==="announce"||mtype==="announcements"){
+      const view=mAnnView;
+      const announcements=gData.announcements||[];
+      if(mtype==="announcements"&&view==="compose"&&mAnnView==="compose"){}
+      return(<Sheet title={view==="list"?"Announcements":"Post Announcement"} emoji="📢" onClose={closeModal} C={C}>
+        {view==="list"&&<>
+          <button style={Bt(C,"p",{width:"100%",marginBottom:16})} className="btn-p" onClick={()=>setMAnnView("compose")}>+ Post New</button>
+          {announcements.length===0&&<div style={{textAlign:"center",color:C.muted,padding:"30px 0",fontSize:14}}>No announcements yet</div>}
+          {announcements.map(a=>(<div key={a.id} style={{...K(C,{marginBottom:12}),border:a.pinned?`1.5px solid ${C.yellow}`:undefined}}>
+            {a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}
+            <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:C.redLight,color:C.red,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}</div>
+          </div>))}
+        </>}
+        {view==="compose"&&<>
+          {mtype==="announcements"&&<button style={{...Bt(C,"gh",{marginBottom:14,padding:"8px 14px",fontSize:13})}} onClick={()=>setMAnnView("list")}>← View All</button>}
+          <label style={L(C)}>Your Message</label>
+          <textarea style={{...I(C),height:120,resize:"none",lineHeight:1.65}} placeholder="What do you want to announce?" value={mAnnText} onChange={e=>setMAnnText(e.target.value)}/>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <button onClick={()=>setMAnnPinned(!mAnnPinned)} style={{display:"flex",alignItems:"center",gap:8,background:mAnnPinned?C.yellowLight:C.bg,border:`1.5px solid ${mAnnPinned?C.yellow:C.border}`,borderRadius:12,padding:"8px 14px",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,color:mAnnPinned?"#B37A00":C.textSub}}>📌 {mAnnPinned?"Pinned":"Pin to top"}</button>
+          </div>
+          <div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mAnnText.trim())postAnnounce(mAnnText,mAnnPinned);}}>📢 Post Now</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+        </>}
+      </Sheet>);
+    }
+
+    if(mtype==="addExpense") return(
+      <Sheet title="Request Expense" emoji="💸" onClose={closeModal} C={C}>
+        <div style={{display:"flex",gap:8,marginBottom:20}}>{[1,2].map(s=><div key={s} style={{flex:1,height:4,borderRadius:99,background:s<=mExpStep?C.primary:C.primaryMid,transition:"background 0.3s"}}/>)}</div>
+        {mExpStep===1&&<>
+          <div style={{background:C.primaryLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.primary,fontWeight:600}}>💡 Needs {required}/{members.length} group votes to approve</div>
+          <label style={L(C)}>What is this for?</label>
+          <input style={I(C)} placeholder="e.g. New cricket bat..." value={mExpF.title} onChange={e=>setMExpF({...mExpF,title:e.target.value})}/>
+          <label style={L(C)}>Category</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{CATS.map(c=><button key={c} onClick={()=>setMExpF({...mExpF,category:c})} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${mExpF.category===c?C.primary:C.border}`,background:mExpF.category===c?C.primaryLight:C.bg,color:mExpF.category===c?C.primary:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{c}</button>)}</div>
+          <button style={Bt(C,"p",{width:"100%",padding:"13px"})} className="btn-p" onClick={()=>{if(mExpF.title)setMExpStep(2);}}>Next →</button>
+        </>}
+        {mExpStep===2&&<>
+          <div style={{background:C.greenLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.greenDark,fontWeight:600}}>✓ "{mExpF.title}" · {mExpF.category}</div>
+          <label style={L(C)}>Amount (₹)</label>
+          <input style={{...I(C),fontSize:24,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={mExpF.amount} onChange={e=>setMExpF({...mExpF,amount:e.target.value})}/>
+          <label style={L(C)}>Description (optional)</label>
+          <textarea style={{...I(C),height:80,resize:"none"}} placeholder="More details..." value={mExpF.description} onChange={e=>setMExpF({...mExpF,description:e.target.value})}/>
+          <div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{padding:"13px 16px"})} onClick={()=>setMExpStep(1)}>← Back</button><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mExpF.amount&&Number(mExpF.amount)>0)requestVote("expense",{title:mExpF.title,amount:Number(mExpF.amount),category:mExpF.category,description:mExpF.description});}}>Send for Vote 🗳️</button></div>
+        </>}
+      </Sheet>
+    );
+
+    if(mtype==="emergency") return(
+      <Sheet title="Emergency Request" emoji="🆘" onClose={closeModal} C={C}>
+        <div style={{display:"flex",gap:8,marginBottom:20}}>{[1,2].map(s=><div key={s} style={{flex:1,height:4,borderRadius:99,background:s<=mEmgStep?C.red:C.redLight,transition:"background 0.3s"}}/>)}</div>
+        {mEmgStep===1&&<>
+          <div style={{background:C.redLight,borderRadius:16,padding:"16px",marginBottom:16,textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>🆘</div><div style={{fontWeight:900,color:C.red,fontSize:15,marginBottom:4}}>Emergency Fund Request</div><div style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>Needs {required}/{members.length} votes to release funds.</div></div>
+          <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:14,padding:"13px",marginBottom:14,textAlign:"center",fontSize:22,fontWeight:900,color:C.greenDark}}>{fmtI(totalBal)}</div>
+          <label style={L(C)}>Amount Needed (₹)</label>
+          <input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={mEmgF.amount} onChange={e=>setMEmgF({...mEmgF,amount:e.target.value})}/>
+          <button style={Bt(C,"r",{width:"100%",padding:"13px"})} className="btn-r" onClick={()=>{if(mEmgF.amount&&Number(mEmgF.amount)>0)setMEmgStep(2);}}>Next →</button>
+        </>}
+        {mEmgStep===2&&<>
+          <div style={{background:C.redLight,borderRadius:14,padding:"11px 14px",marginBottom:14,fontSize:14,color:C.red,fontWeight:700}}>Amount: {fmtI(mEmgF.amount)}</div>
+          <label style={L(C)}>Reason</label>
+          <input style={I(C)} placeholder="e.g. Medical emergency..." value={mEmgF.reason} onChange={e=>setMEmgF({...mEmgF,reason:e.target.value})}/>
+          <label style={L(C)}>Details</label>
+          <textarea style={{...I(C),height:100,resize:"none"}} placeholder="Explain the situation..." value={mEmgF.details} onChange={e=>setMEmgF({...mEmgF,details:e.target.value})}/>
+          <div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{padding:"13px 16px"})} onClick={()=>setMEmgStep(1)}>← Back</button><button style={Bt(C,"r",{flex:1,padding:"13px"})} className="btn-r" onClick={()=>{if(mEmgF.reason)requestVote("emergency",{amount:Number(mEmgF.amount),reason:mEmgF.reason,details:mEmgF.details});}}>🆘 Send for Vote</button></div>
+        </>}
+      </Sheet>
+    );
+
+    if(mtype==="addEvent") return(
+      <Sheet title="Create Event" emoji="🗓️" onClose={closeModal} C={C}>
+        <label style={L(C)}>Event Type</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{EVENT_TYPES.map(t=>(<button key={t.v} onClick={()=>setMEvtF({...mEvtF,type:t.v})} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:12,border:`1.5px solid ${mEvtF.type===t.v?t.color:C.border}`,background:mEvtF.type===t.v?`${t.color}18`:C.bg,color:mEvtF.type===t.v?t.color:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.icon} {t.v==="cricket"?"Cricket":t.v==="party"?"Party":t.v==="trip"?"Trip":t.v==="hangout"?"Hangout":t.v==="movie"?"Movie":t.v==="food"?"Food":"Other"}</button>))}</div>
+        <label style={L(C)}>Event Title</label>
+        <input style={I(C)} placeholder="e.g. Sunday Match" value={mEvtF.title} onChange={e=>setMEvtF({...mEvtF,title:e.target.value})}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={L(C)}>Date</label><input style={I(C)} type="date" value={mEvtF.date} min={getTodayISO()} onChange={e=>setMEvtF({...mEvtF,date:e.target.value})}/></div><div><label style={L(C)}>Time</label><input style={I(C)} type="time" value={mEvtF.time} onChange={e=>setMEvtF({...mEvtF,time:e.target.value})}/></div></div>
+        <label style={L(C)}>Location</label><input style={I(C)} placeholder="e.g. Gachibowli Stadium" value={mEvtF.location} onChange={e=>setMEvtF({...mEvtF,location:e.target.value})}/>
+        <label style={L(C)}>Description (optional)</label><textarea style={{...I(C),height:80,resize:"none"}} placeholder="Any details..." value={mEvtF.description} onChange={e=>setMEvtF({...mEvtF,description:e.target.value})}/>
+        <label style={L(C)}>Budget (₹) — optional</label><input style={I(C)} type="number" placeholder="0" value={mEvtF.budget} onChange={e=>setMEvtF({...mEvtF,budget:e.target.value})}/>
+        <div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mEvtF.title&&mEvtF.date)addEvent(mEvtF);}}>Create Event 🎉</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+      </Sheet>
+    );
+
+    if(mtype==="addGoal") return(
+      <Sheet title="New Savings Goal" emoji="🎯" onClose={closeModal} C={C}>
+        <label style={L(C)}>Goal Name</label><input style={I(C)} placeholder="e.g. Goa Trip 🏖️" value={mGoalF.title} onChange={e=>setMGoalF({...mGoalF,title:e.target.value})}/>
+        <label style={L(C)}>Target Amount (₹)</label><input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="10,000" value={mGoalF.target} onChange={e=>setMGoalF({...mGoalF,target:e.target.value})}/>
+        <label style={L(C)}>Deadline</label><input style={I(C)} type="date" value={mGoalF.deadline} min={getTodayISO()} onChange={e=>setMGoalF({...mGoalF,deadline:e.target.value})}/>
+        <label style={L(C)}>Description (optional)</label><textarea style={{...I(C),height:80,resize:"none"}} value={mGoalF.description} onChange={e=>setMGoalF({...mGoalF,description:e.target.value})} placeholder="What are you saving for?"/>
+        <div style={{display:"flex",gap:10}}><button style={Bt(C,"g",{flex:1,padding:"13px"})} className="btn-g" onClick={()=>{if(mGoalF.title&&mGoalF.target&&mGoalF.deadline)addGoal(mGoalF);}}>Create Goal 🎯</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+      </Sheet>
+    );
+
+    if(mtype==="fundGoal"){
+      const goal=modal.goal;
+      const raised=goal.contributions.reduce((s,c)=>s+c.amount,0);
+      const remaining=goal.target-raised;
+      return(
+        <Sheet title={`Fund: ${goal.title}`} emoji="🎯" onClose={closeModal} C={C}>
+          <div style={{display:"flex",gap:10,marginBottom:14}}>{[{l:"Raised",v:fmtI(raised),c:C.primary,bg:C.primaryLight},{l:"Needed",v:fmtI(remaining),c:C.text,bg:C.bg},{l:"Treasury",v:fmtI(totalBal),c:C.greenDark,bg:C.greenLight}].map(s=>(<div key={s.l} style={{flex:1,...K(C,{padding:"12px",textAlign:"center",marginBottom:0,background:s.bg})}}><div style={{fontSize:10,color:s.c,fontWeight:700,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:18,fontWeight:900,color:s.c,marginTop:4}}>{s.v}</div></div>))}</div>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>{[500,1000,2000,5000].filter(a=>a<=remaining).map(a=>(<button key={a} onClick={()=>setMGoalAmt(String(a))} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${mGoalAmt===String(a)?C.primary:C.border}`,background:mGoalAmt===String(a)?C.primaryLight:C.bg,color:mGoalAmt===String(a)?C.primary:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>₹{a>=1000?a/1000+"k":a}</button>))}</div>
+          <label style={L(C)}>Amount to Release (₹)</label>
+          <input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={mGoalAmt} onChange={e=>setMGoalAmt(e.target.value)}/>
+          <div style={{background:C.yellowLight,borderRadius:14,padding:"11px 14px",marginBottom:14,fontSize:12,color:"#B37A00",fontWeight:600}}>⚠️ Needs {required}/{members.length} group votes</div>
+          <div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mGoalAmt&&Number(mGoalAmt)>0)requestVote("goalRelease",{goalId:goal.id,goalTitle:goal.title,amount:Number(mGoalAmt),title:`Release ${fmtI(Number(mGoalAmt))} for ${goal.title}`});}}>Send for Vote 🗳️</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+        </Sheet>
+      );
+    }
+
+    if(mtype==="groupSettings") return(
+      <Sheet title="Group Settings" emoji="⚙️" onClose={closeModal} C={C}>
+        <label style={L(C)}>Group Icon</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{GROUP_EMOJIS.map(e=><button key={e} onClick={()=>setMGrpF({...mGrpF,icon:e})} style={{fontSize:24,padding:10,background:mGrpF.icon===e?C.primaryLight:C.bg,border:`2px solid ${mGrpF.icon===e?C.primary:C.border}`,borderRadius:14,cursor:"pointer",transition:"all 0.14s",transform:mGrpF.icon===e?"scale(1.15)":"scale(1)"}}>{e}</button>)}</div>
+        <label style={L(C)}>Group Name</label>
+        <input style={I(C)} value={mGrpF.name} onChange={e=>setMGrpF({...mGrpF,name:e.target.value})}/>
+        <div style={{background:C.yellowLight,borderRadius:14,padding:"11px 14px",marginBottom:12,fontSize:12,color:"#B37A00",fontWeight:600}}>💡 To change monthly amount, tap "Request Expense" on the Home tab and vote on it</div>
+        <div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>saveGroupSettings(mGrpF)}>Save ✓</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+      </Sheet>
+    );
+
+    if(mtype==="bellPanel"){
+      const announcements=gData.announcements||[];
+      const myNotifs=(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      return(<Sheet title="Notifications" emoji="🔔" onClose={closeModal} C={C} maxH="88vh">
+        {allPendingVotes.length>0&&<>
+          <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>🗳️ Pending Votes ({allPendingVotes.length})</div>
+          <button onClick={()=>{closeModal();setVotePopupOpen(true);}} style={{...Bt(C,"p",{width:"100%",marginBottom:16,padding:"13px"}),background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`}} className="btn-p">Vote Now — {myPendingVotes.length} need your input 🗳️</button>
+        </>}
+        <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>📢 Announcements</div>
+        {announcements.length===0&&<div style={{...K(C,{padding:"18px",textAlign:"center",marginBottom:14}),color:C.muted,fontSize:13}}>No announcements yet</div>}
+        {announcements.map(a=>(<div key={a.id} style={{...K(C,{padding:"14px 16px",marginBottom:10}),border:a.pinned?`1.5px solid ${C.yellow}66`:`1px solid ${C.border}`}}>
+          {a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}
+          <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700}}>✕</button>}</div>
+        </div>))}
+        {myNotifs.length>0&&<><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",margin:"16px 0 10px"}}>🔔 Your Notifications</div>{myNotifs.slice(0,5).map(n=>(<div key={n.id} style={K(C,{padding:"12px 14px",marginBottom:8})}><div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.55}}>{n.message}</div><div style={{fontSize:11,color:C.muted,marginTop:5,fontWeight:600}}>{fmtDT(n.createdAt)}</div></div>))}</>}
+        <button style={Bt(C,"p",{width:"100%",padding:"13px",marginTop:8})} className="btn-p" onClick={()=>{closeModal();setMAnnView("compose");setModal("announce");}}>📢 Post Announcement</button>
+      </Sheet>);
+    }
+
+    return null;
+  };
+
+  // ── Vote Popup ─────────────────────────────────────────────────
+  const VotePopupEl=()=>{
     const typeConfig={
-      expense:     {icon:"💸",color:C.primary,  bg:C.primaryLight, label:"Expense Request"},
-      emergency:   {icon:"🆘",color:C.red,      bg:C.redLight,     label:"Emergency Fund"},
-      admin:       {icon:"👑",color:"#B37A00",  bg:C.yellowLight,  label:"Admin Nomination"},
-      removeMember:{icon:"🚪",color:C.red,      bg:C.redLight,     label:"Remove Member"},
-      goalRelease: {icon:"🎯",color:C.purple,   bg:C.purpleLight,  label:"Goal Fund Release"},
-      monthlyAmount:{icon:"📅",color:C.green,   bg:C.greenLight,   label:"Change Monthly Amount"},
+      expense:      {icon:"💸",color:C.primary,bg:C.primaryLight,label:"Expense"},
+      emergency:    {icon:"🆘",color:C.red,    bg:C.redLight,   label:"Emergency"},
+      admin:        {icon:"👑",color:"#B37A00",bg:C.yellowLight,label:"Admin Change"},
+      removeMember: {icon:"🚪",color:C.red,    bg:C.redLight,   label:"Remove Member"},
+      goalRelease:  {icon:"🎯",color:C.purple, bg:C.purpleLight,label:"Goal Release"},
+      monthlyAmount:{icon:"📅",color:C.green,  bg:C.greenLight, label:"Monthly Change"},
     };
     const getTitle=v=>{
-      if(v.voteType==="expense")     return v.title;
-      if(v.voteType==="emergency")   return `${v.memberName} needs ${fmtI(v.amount)}`;
-      if(v.voteType==="admin")       return `Make ${members.find(m=>m.uid===v.nomineeUid)?.name||"member"} ${v.isRemoval?"ex-admin":"admin"}`;
-      if(v.voteType==="removeMember")return `Remove ${members.find(m=>m.uid===v.targetUid)?.name||"member"}`;
-      if(v.voteType==="goalRelease") return `Release ${fmtI(v.amount)} for ${v.goalTitle}`;
+      if(v.voteType==="expense")      return v.title;
+      if(v.voteType==="emergency")    return `${v.memberName} needs ${fmtI(v.amount)}`;
+      if(v.voteType==="admin")        return `${v.isRemoval?"Remove":"Make"} ${members.find(m=>m.uid===v.nomineeUid)?.name||"member"} admin`;
+      if(v.voteType==="removeMember") return `Remove ${members.find(m=>m.uid===v.targetUid)?.name||"member"}`;
+      if(v.voteType==="goalRelease")  return `Release ${fmtI(v.amount)} for ${v.goalTitle}`;
       if(v.voteType==="monthlyAmount")return `Change monthly to ${fmtI(v.newAmount)}`;
-      return "Vote pending";
+      return"Vote pending";
     };
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.6)",backdropFilter:"blur(10px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 20px"}} onClick={e=>{if(e.target===e.currentTarget)setVotePopupOpen(false);}}>
+      <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.6)",backdropFilter:"blur(10px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 16px"}} onClick={e=>{if(e.target===e.currentTarget)setVotePopupOpen(false);}}>
         <div className="sheet-up" style={{background:C.white,borderRadius:28,width:"calc(100% - 32px)",maxWidth:420,boxShadow:"0 -8px 60px rgba(67,97,238,0.25)",overflow:"hidden"}}>
-          {/* Header */}
-          <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,padding:"20px 20px 18px"}}>
+          <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,padding:"18px 20px 16px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.65)",fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginBottom:6}}>Pending Votes</div>
-                <div style={{fontSize:20,fontWeight:900,color:"#fff"}}>🗳️ {myPendingVotes.length} need{myPendingVotes.length===1?"s":""} your vote</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.65)",marginTop:4}}>Needs {required} of {members.length} approvals (2/3 rule)</div>
-              </div>
+              <div><div style={{fontSize:11,color:"rgba(255,255,255,0.65)",fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Pending Votes</div><div style={{fontSize:19,fontWeight:900,color:"#fff"}}>🗳️ {myPendingVotes.length} need{myPendingVotes.length===1?"s":""} your vote</div><div style={{fontSize:12,color:"rgba(255,255,255,0.65)",marginTop:3}}>Need {required} of {members.length} approvals (2/3 rule)</div></div>
               <button onClick={()=>setVotePopupOpen(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:11,width:32,height:32,color:"#fff",cursor:"pointer",fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",flexShrink:0}}>✕</button>
             </div>
           </div>
-          {/* Vote cards */}
-          <div style={{maxHeight:"55vh",overflowY:"auto",padding:"16px 16px 4px"}}>
-            {myPendingVotes.map((v,i)=>{
+          <div style={{maxHeight:"52vh",overflowY:"auto",padding:"14px 16px 4px"}}>
+            {myPendingVotes.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:C.muted,fontSize:14,fontWeight:600}}>All votes cast! ✓</div>}
+            {myPendingVotes.map(v=>{
               const tc=typeConfig[v.voteType]||typeConfig.expense;
               const pct=Math.min(((v.approvals||[]).length/required)*100,100);
-              const alreadyVoted=(v.approvals||[]).includes(userProfile.uid)||(v.rejections||[]).includes(userProfile.uid);
               return(
                 <div key={`${v.voteType}-${v.id}`} style={{...K(C,{marginBottom:12,padding:"14px 16px"}),border:`1.5px solid ${tc.color}22`}}>
-                  {/* Type badge */}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:32,height:32,borderRadius:10,background:tc.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{tc.icon}</div>
-                      <div>
-                        <div style={{fontSize:10,color:tc.color,fontWeight:800,letterSpacing:1,textTransform:"uppercase"}}>{tc.label}</div>
-                        <div style={{fontWeight:800,color:C.text,fontSize:14,marginTop:1}}>{getTitle(v)}</div>
-                      </div>
+                      <div><div style={{fontSize:10,color:tc.color,fontWeight:800,letterSpacing:1,textTransform:"uppercase"}}>{tc.label}</div><div style={{fontWeight:800,color:C.text,fontSize:14,marginTop:1}}>{getTitle(v)}</div></div>
                     </div>
-                    {v.amount&&<div style={{fontSize:16,fontWeight:900,color:tc.color,flexShrink:0}}>{fmtI(v.amount)}</div>}
+                    {v.amount&&<div style={{fontSize:15,fontWeight:900,color:tc.color,flexShrink:0}}>{fmtI(v.amount)}</div>}
                   </div>
-                  {/* Requester */}
-                  <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>
-                    Requested by {v.requestedByAvatar} {v.requestedByName||"Member"} · {fmtD(v.createdAt)}
+                  <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>by {v.requestedByAvatar} {v.requestedByName||"Member"} · {fmtD(v.createdAt)}</div>
+                  <div style={{background:C.primaryMid,borderRadius:99,height:6,overflow:"hidden",marginBottom:8}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${tc.color},${tc.color}99)`,borderRadius:99,transition:"width 0.5s"}}/></div>
+                  <div style={{fontSize:11,color:C.textSub,fontWeight:600,marginBottom:12}}>{(v.approvals||[]).length}/{required} approvals</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={Bt(C,"g",{flex:1,padding:"10px",fontSize:13,borderRadius:12})} className="btn-g" onClick={()=>castVote(v.voteType,v.id,true)}>👍 Approve</button>
+                    <button style={Bt(C,"r",{flex:1,padding:"10px",fontSize:13,borderRadius:12})} className="btn-r" onClick={()=>castVote(v.voteType,v.id,false)}>👎 Reject</button>
                   </div>
-                  {/* Progress */}
-                  <div style={{background:C.primaryMid,borderRadius:99,height:6,overflow:"hidden",marginBottom:8}}>
-                    <div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${tc.color},${tc.color}99)`,borderRadius:99,transition:"width 0.5s"}}/>
-                  </div>
-                  <div style={{fontSize:11,color:C.textSub,fontWeight:600,marginBottom:12}}>{(v.approvals||[]).length}/{required} approvals needed</div>
-                  {/* Vote buttons */}
-                  {alreadyVoted?(
-                    <div style={{...Pl(C,"green"),width:"100%",justifyContent:"center",padding:"9px",fontSize:12}}>✓ You already voted on this</div>
-                  ):(
-                    <div style={{display:"flex",gap:8}}>
-                      <button style={{...Bt(C,"g",{flex:1,padding:"10px",fontSize:13,borderRadius:12})}} className="btn-g" onClick={()=>{castUniversalVote(v.voteType,v.id,true);}}>👍 Approve</button>
-                      <button style={{...Bt(C,"r",{flex:1,padding:"10px",fontSize:13,borderRadius:12})}} className="btn-r" onClick={()=>{castUniversalVote(v.voteType,v.id,false);}}>👎 Reject</button>
-                    </div>
-                  )}
                 </div>
               );
             })}
           </div>
-          <div style={{padding:"8px 16px 20px"}}>
-            <button style={Bt(C,"gh",{width:"100%",padding:"12px",fontSize:13})} onClick={()=>setVotePopupOpen(false)}>Vote Later</button>
-          </div>
+          <div style={{padding:"8px 16px 20px"}}><button style={Bt(C,"gh",{width:"100%",padding:"12px",fontSize:13})} onClick={()=>setVotePopupOpen(false)}>Vote Later</button></div>
         </div>
       </div>
     );
   };
 
-  const renderModal=()=>{
-    if(!modal)return null;
-    const mtype=typeof modal==="string"?modal:modal.type;
-
-    if(mtype==="announce"||mtype==="announcements"){const AnnounceModal=()=>{const [text,setText]=useState("");const[pinned,setPinned]=useState(false);const[view,setView]=useState(mtype==="announcements"?"list":"compose");const announcements=gData.announcements||[];return(<Sheet title={view==="list"?"Announcements":"Post Announcement"} emoji="📢" onClose={closeModal} C={C}>{view==="list"&&<><button style={Bt(C,"p",{width:"100%",marginBottom:16})} className="btn-p" onClick={()=>setView("compose")}>+ Post New Announcement</button>{announcements.length===0&&<div style={{textAlign:"center",color:C.muted,padding:"30px 0",fontSize:14}}>No announcements yet</div>}{announcements.map(a=>(<div key={a.id} style={{...K(C,{marginBottom:12}),border:a.pinned?`1.5px solid ${C.yellow}`:undefined}}>{a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}<div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:C.redLight,color:C.red,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}</div></div>))}</>}{view==="compose"&&<>{mtype==="announcements"&&<button style={{...Bt(C,"gh",{marginBottom:14,padding:"8px 14px",fontSize:13})}} onClick={()=>setView("list")}>← View All</button>}<div style={{background:C.primaryLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.primary,fontWeight:600}}>📣 All group members see this instantly</div><label style={L(C)}>Your Message</label><textarea style={{...I(C),height:120,resize:"none",lineHeight:1.65}} placeholder="What do you want to announce?" value={text} onChange={e=>setText(e.target.value)}/><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}><button onClick={()=>setPinned(!pinned)} style={{display:"flex",alignItems:"center",gap:8,background:pinned?C.yellowLight:C.bg,border:`1.5px solid ${pinned?C.yellow:C.border}`,borderRadius:12,padding:"8px 14px",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,color:pinned?"#B37A00":C.textSub}}>📌 {pinned?"Pinned":"Pin to top"}</button></div><div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(text.trim())postAnnounce(text,pinned);}}>📢 Post Now</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></>}</Sheet>);};return <AnnounceModal/>;}
-
-    // ── Request Expense (puts to vote) ─────────────────────────
-    if(mtype==="addExpense"){const EM=()=>{const[f,setF]=useState({title:"",amount:"",category:"Cricket",description:""});const[step,setStep]=useState(1);return(<Sheet title="Request Expense" emoji="💸" onClose={closeModal} C={C}><div style={{display:"flex",gap:8,marginBottom:20}}>{[1,2].map(s=><div key={s} style={{flex:1,height:4,borderRadius:99,background:s<=step?C.primary:C.primaryMid,transition:"background 0.3s"}}/>)}</div>{step===1&&<><div style={{background:C.primaryLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.primary,fontWeight:600}}>💡 This will go to a group vote. Needs {required}/{members.length} approvals.</div><label style={L(C)}>What is this for?</label><input style={I(C)} placeholder="e.g. New cricket bat..." value={f.title} onChange={e=>setF({...f,title:e.target.value})}/><label style={L(C)}>Category</label><div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{CATS.map(c=><button key={c} onClick={()=>setF({...f,category:c})} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${f.category===c?C.primary:C.border}`,background:f.category===c?C.primaryLight:C.bg,color:f.category===c?C.primary:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{c}</button>)}</div><button style={Bt(C,"p",{width:"100%",padding:"13px"})} className="btn-p" onClick={()=>{if(f.title)setStep(2);}}>Next →</button></>}{step===2&&<><div style={{background:C.greenLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.greenDark,fontWeight:600}}>✓ "{f.title}" · {f.category}</div><label style={L(C)}>Amount (₹)</label><input style={{...I(C),fontSize:24,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={f.amount} onChange={e=>setF({...f,amount:e.target.value})}/><label style={L(C)}>Description (optional)</label><textarea style={{...I(C),height:80,resize:"none"}} placeholder="More details..." value={f.description} onChange={e=>setF({...f,description:e.target.value})}/><div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{padding:"13px 16px"})} onClick={()=>setStep(1)}>← Back</button><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(f.amount&&Number(f.amount)>0)requestVote("expense",{title:f.title,amount:Number(f.amount),category:f.category,description:f.description});}}>Send for Vote 🗳️</button></div></>}</Sheet>);};return <EM/>;}
-
-    // ── Emergency ──────────────────────────────────────────────
-    if(mtype==="emergency"){const EM=()=>{const[f,setF]=useState({amount:"",reason:"",details:""});const[step,setStep]=useState(1);return(<Sheet title="Emergency Request" emoji="🆘" onClose={closeModal} C={C}><div style={{display:"flex",gap:8,marginBottom:20}}>{[1,2].map(s=><div key={s} style={{flex:1,height:4,borderRadius:99,background:s<=step?C.red:C.redLight,transition:"background 0.3s"}}/>)}</div>{step===1&&<><div style={{background:C.redLight,borderRadius:16,padding:"16px",marginBottom:16,textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>🆘</div><div style={{fontWeight:900,color:C.red,fontSize:15,marginBottom:4}}>Emergency Fund Request</div><div style={{fontSize:13,color:C.textSub,lineHeight:1.6}}>Sends to all members for vote. Needs {required}/{members.length} approvals.</div></div><label style={L(C)}>Available Treasury</label><div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:14,padding:"13px",marginBottom:14,textAlign:"center",fontSize:22,fontWeight:900,color:C.greenDark}}>{fmtI(totalBal)}</div><label style={L(C)}>Amount Needed (₹)</label><input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={f.amount} onChange={e=>setF({...f,amount:e.target.value})}/><button style={Bt(C,"r",{width:"100%",padding:"13px"})} className="btn-r" onClick={()=>{if(f.amount&&Number(f.amount)>0)setStep(2);}}>Next →</button></>}{step===2&&<><div style={{background:C.redLight,borderRadius:14,padding:"11px 14px",marginBottom:14,fontSize:14,color:C.red,fontWeight:700}}>Amount: {fmtI(f.amount)}</div><label style={L(C)}>Reason</label><input style={I(C)} placeholder="e.g. Medical emergency..." value={f.reason} onChange={e=>setF({...f,reason:e.target.value})}/><label style={L(C)}>Details</label><textarea style={{...I(C),height:100,resize:"none"}} placeholder="Explain the situation..." value={f.details} onChange={e=>setF({...f,details:e.target.value})}/><div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{padding:"13px 16px"})} onClick={()=>setStep(1)}>← Back</button><button style={Bt(C,"r",{flex:1,padding:"13px"})} className="btn-r" onClick={()=>{if(f.reason)requestVote("emergency",{amount:Number(f.amount),reason:f.reason,details:f.details});}}>🆘 Send for Vote</button></div></>}</Sheet>);};return <EM/>;}
-
-    // ── Change Monthly Amount ──────────────────────────────────
-    if(mtype==="changeMonthly"){const CM=()=>{const[amt,setAmt]=useState("");return(<Sheet title="Change Monthly Amount" emoji="📅" onClose={closeModal} C={C}><div style={{background:C.greenLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.greenDark,fontWeight:600}}>💡 Current amount: {fmtI(gData.monthlyAmount||200)}/month. This needs group vote to change.</div><label style={L(C)}>New Monthly Amount (₹)</label><input style={{...I(C),fontSize:24,fontWeight:900,textAlign:"center"}} type="number" placeholder={gData.monthlyAmount||200} value={amt} onChange={e=>setAmt(e.target.value)}/><div style={{background:C.yellowLight,borderRadius:14,padding:"11px 14px",marginBottom:14,fontSize:12,color:"#B37A00",fontWeight:600}}>⚠️ Needs {required} of {members.length} approvals</div><div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(amt&&Number(amt)>0)requestVote("monthlyAmount",{newAmount:Number(amt),title:`Change monthly dues to ${fmtI(Number(amt))}`});}}>Send for Vote 🗳️</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);};return <CM/>;}
-
-    // ── Nominate / Remove Admin ────────────────────────────────
-    if(mtype==="adminVote"){const{member,isRemoval}=modal;return(<Sheet title={isRemoval?"Remove Admin":"Make Admin"} emoji="👑" onClose={closeModal} C={C}><div style={{...K(C,{textAlign:"center",padding:"20px 16px",marginBottom:16,background:isRemoval?C.redLight:C.yellowLight}),border:`1.5px solid ${isRemoval?C.red+"33":C.yellow+"44"}`}}><div style={{fontSize:44,marginBottom:8}}>{member.avatar}</div><div style={{fontWeight:900,color:C.text,fontSize:17}}>{member.name}</div><div style={{fontSize:13,color:C.textSub,marginTop:4}}>{isRemoval?"Remove admin rights":"Grant admin rights"}</div></div><div style={{background:C.primaryLight,borderRadius:14,padding:"12px 14px",marginBottom:14,fontSize:13,color:C.primary,fontWeight:600}}>🗳️ Needs {required} of {members.length} votes · Your vote counts too</div><div style={{display:"flex",gap:10}}><button style={Bt(C,isRemoval?"r":"y",{flex:1,padding:"13px",color:isRemoval?"#fff":"#333"})} className={isRemoval?"btn-r":"btn-y"} onClick={()=>requestVote("admin",{nomineeUid:member.uid,nominatedByName:userProfile.name,isRemoval:isRemoval||false,title:`${isRemoval?"Remove":"Make"} ${member.name} ${isRemoval?"as admin":"admin"}`})}>Send for Vote 🗳️</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);}
-
-    // ── Remove Member (via vote) ───────────────────────────────
-    if(mtype==="removeMember"){const m=modal.member;return(<Sheet title="Remove Member" emoji="🚪" onClose={closeModal} C={C}><div style={{...K(C,{background:C.redLight,border:`1.5px solid ${C.red}33`,marginBottom:16,textAlign:"center",padding:"20px 16px"})}}>  <div style={{fontSize:44,marginBottom:8}}>{m.avatar}</div><div style={{fontWeight:900,color:C.text,fontSize:17}}>{m.name}</div></div><div style={{background:C.yellowLight,borderRadius:14,padding:"12px 14px",marginBottom:14,fontSize:13,color:"#B37A00",fontWeight:600}}>⚠️ Removal requires {required}/{members.length} group votes. Payment history is preserved.</div><div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{flex:1,padding:"13px"})} onClick={closeModal}>Cancel</button><button style={Bt(C,"r",{flex:1,padding:"13px"})} className="btn-r" onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})}>Send for Vote 🗳️</button></div></Sheet>);}
-
-    // ── Goal Fund Release (via vote) ───────────────────────────
-    if(mtype==="fundGoal"){const FM=()=>{const[amount,setAmount]=useState("");const goal=modal.goal;const raised=goal.contributions.reduce((s,c)=>s+c.amount,0);const remaining=goal.target-raised;return(<Sheet title={`Fund: ${goal.title}`} emoji="🎯" onClose={closeModal} C={C}><div style={{display:"flex",gap:10,marginBottom:14}}><div style={{flex:1,...K(C,{padding:"12px",textAlign:"center",marginBottom:0})}}><div style={{fontSize:10,color:C.primary,fontWeight:700,textTransform:"uppercase"}}>Raised</div><div style={{fontSize:18,fontWeight:900,color:C.primary,marginTop:4}}>{fmtI(raised)}</div></div><div style={{flex:1,...K(C,{padding:"12px",textAlign:"center",marginBottom:0})}}><div style={{fontSize:10,color:C.textSub,fontWeight:700,textTransform:"uppercase"}}>Needed</div><div style={{fontSize:18,fontWeight:900,color:C.text,marginTop:4}}>{fmtI(remaining)}</div></div><div style={{flex:1,...K(C,{padding:"12px",textAlign:"center",marginBottom:0})}}><div style={{fontSize:10,color:C.textSub,fontWeight:700,textTransform:"uppercase"}}>Treasury</div><div style={{fontSize:18,fontWeight:900,color:C.greenDark,marginTop:4}}>{fmtI(totalBal)}</div></div></div><div style={{display:"flex",gap:8,marginBottom:14}}>{[500,1000,2000,5000].filter(a=>a<=remaining).map(a=>(<button key={a} onClick={()=>setAmount(String(a))} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${amount===String(a)?C.primary:C.border}`,background:amount===String(a)?C.primaryLight:C.bg,color:amount===String(a)?C.primary:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>₹{a>=1000?a/1000+"k":a}</button>))}</div><label style={L(C)}>Amount to Release (₹)</label><input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={amount} onChange={e=>setAmount(e.target.value)}/><div style={{background:C.yellowLight,borderRadius:14,padding:"11px 14px",marginBottom:14,fontSize:12,color:"#B37A00",fontWeight:600}}>⚠️ Releasing funds needs {required}/{members.length} group votes</div><div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(amount&&Number(amount)>0)requestVote("goalRelease",{goalId:goal.id,goalTitle:goal.title,amount:Number(amount),title:`Release ${fmtI(Number(amount))} for ${goal.title}`});}}>Send for Vote 🗳️</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);};return <FM/>;}
-
-    if(mtype==="addEvent"){const EM=()=>{const[f,setF]=useState({title:"",type:"cricket",date:getTodayISO(),time:"06:00",location:"",description:"",budget:""});const et=EVENT_TYPES.find(t=>t.v===f.type)||EVENT_TYPES[0];return(<Sheet title="Create Event" emoji="🗓️" onClose={closeModal} C={C}><label style={L(C)}>Event Type</label><div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{EVENT_TYPES.map(t=>(<button key={t.v} onClick={()=>setF({...f,type:t.v})} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:12,border:`1.5px solid ${f.type===t.v?t.color:C.border}`,background:f.type===t.v?`${t.color}18`:C.bg,color:f.type===t.v?t.color:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.icon} {t.v==="cricket"?"Cricket":t.v==="party"?"Party":t.v==="trip"?"Trip":t.v==="hangout"?"Hangout":t.v==="movie"?"Movie":t.v==="food"?"Food":"Other"}</button>))}</div><label style={L(C)}>Event Title</label><input style={I(C)} placeholder={`e.g. ${et.icon} Group ${f.type==="cricket"?"Match":"Meetup"}`} value={f.title} onChange={e=>setF({...f,title:e.target.value})}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={L(C)}>Date</label><input style={I(C)} type="date" value={f.date} min={getTodayISO()} onChange={e=>setF({...f,date:e.target.value})}/></div><div><label style={L(C)}>Time</label><input style={I(C)} type="time" value={f.time} onChange={e=>setF({...f,time:e.target.value})}/></div></div><label style={L(C)}>Location</label><input style={I(C)} placeholder="e.g. Gachibowli Stadium" value={f.location} onChange={e=>setF({...f,location:e.target.value})}/><label style={L(C)}>Description (optional)</label><textarea style={{...I(C),height:80,resize:"none"}} placeholder="Any extra details..." value={f.description} onChange={e=>setF({...f,description:e.target.value})}/><label style={L(C)}>Budget (₹) — optional</label><input style={I(C)} type="number" placeholder="0" value={f.budget} onChange={e=>setF({...f,budget:e.target.value})}/><div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(f.title&&f.date)addEvent(f);}}>Create Event 🎉</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);};return <EM/>;}
-    if(mtype==="addGoal"){const GM=()=>{const[f,setF]=useState({title:"",target:"",deadline:"",description:""});return(<Sheet title="New Savings Goal" emoji="🎯" onClose={closeModal} C={C}><label style={L(C)}>Goal Name</label><input style={I(C)} placeholder="e.g. Goa Trip 🏖️" value={f.title} onChange={e=>setF({...f,title:e.target.value})}/><label style={L(C)}>Target Amount (₹)</label><input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center"}} type="number" placeholder="10,000" value={f.target} onChange={e=>setF({...f,target:e.target.value})}/><label style={L(C)}>Deadline</label><input style={I(C)} type="date" value={f.deadline} min={getTodayISO()} onChange={e=>setF({...f,deadline:e.target.value})}/><label style={L(C)}>Description (optional)</label><textarea style={{...I(C),height:80,resize:"none"}} placeholder="What are you saving for?" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/><div style={{display:"flex",gap:10}}><button style={Bt(C,"g",{flex:1,padding:"13px"})} className="btn-g" onClick={()=>{if(f.title&&f.target&&f.deadline)addGoal(f);}}>Create Goal 🎯</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);};return <GM/>;}
-    if(mtype==="groupSettings"){const SM=()=>{const[f,setF]=useState({name:gData.name,amount:gData.monthlyAmount||200,icon:gData.icon||"💰"});return(<Sheet title="Group Settings" emoji="⚙️" onClose={closeModal} C={C}><label style={L(C)}>Group Icon</label><div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{GROUP_EMOJIS.map(e=><button key={e} onClick={()=>setF({...f,icon:e})} style={{fontSize:24,padding:10,background:f.icon===e?C.primaryLight:C.bg,border:`2px solid ${f.icon===e?C.primary:C.border}`,borderRadius:14,cursor:"pointer",transition:"all 0.14s",transform:f.icon===e?"scale(1.15)":"scale(1)"}}>{e}</button>)}</div><label style={L(C)}>Group Name</label><input style={I(C)} value={f.name} onChange={e=>setF({...f,name:e.target.value})}/><div style={{background:C.yellowLight,borderRadius:14,padding:"11px 14px",marginBottom:12,fontSize:12,color:"#B37A00",fontWeight:600}}>📅 To change monthly amount, use the vote system (Home → Request Expense)</div><div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>saveGroupSettings(f)}>Save ✓</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div></Sheet>);};return <SM/>;}
-
-    // ── Bell Panel — announcements + pending votes ─────────────
-    if(mtype==="bellPanel"){
-      const announcements=gData.announcements||[];
-      const myNotifs=(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-      return(<Sheet title="Notifications" emoji="🔔" onClose={closeModal} C={C} maxH="88vh">
-        {/* Pending votes summary */}
-        {allPendingVotes.length>0&&<>
-          <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>🗳️ Pending Votes ({allPendingVotes.length})</div>
-          <button onClick={()=>{closeModal();setVotePopupOpen(true);}} style={{...Bt(C,"p",{width:"100%",marginBottom:16,padding:"13px"}),background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`}} className="btn-p">
-            Vote Now — {myPendingVotes.length} need{myPendingVotes.length===1?"s":""} your input 🗳️
-          </button>
-        </>}
-        <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>📢 Announcements</div>
-        {announcements.length===0&&<div style={{...K(C,{padding:"18px",textAlign:"center",marginBottom:14}),color:C.muted,fontSize:13}}>No announcements yet</div>}
-        {announcements.map(a=>(<div key={a.id} style={{...K(C,{padding:"14px 16px",marginBottom:10}),border:a.pinned?`1.5px solid ${C.yellow}66`:`1px solid ${C.border}`}}>{a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}<div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700}}>✕</button>}</div></div>))}
-        {myNotifs.length>0&&<><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",margin:"16px 0 10px"}}>🔔 Your Notifications</div>{myNotifs.slice(0,5).map(n=>(<div key={n.id} style={K(C,{padding:"12px 14px",marginBottom:8})}><div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.55}}>{n.message}</div><div style={{fontSize:11,color:C.muted,marginTop:5,fontWeight:600}}>{fmtDT(n.createdAt)}</div></div>))}</>}
-        <button style={Bt(C,"p",{width:"100%",padding:"13px",marginTop:8})} className="btn-p" onClick={()=>{closeModal();setModal("announce");}}>📢 Post Announcement</button>
-      </Sheet>);}
-
-    return null;
-  };
-
+  // ── Render ─────────────────────────────────────────────────────
   return(
     <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Plus Jakarta Sans',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:80}}>
       <style>{GS(C,dark)}</style>
@@ -1602,35 +1524,26 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             </div>
           </button>
           <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-            {/* Bell with unified badge */}
             <button onClick={()=>setModal("bellPanel")} style={{position:"relative",width:38,height:38,borderRadius:12,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:17,flexShrink:0}}>
-              🔔
-              {unreadBell>0&&<div style={{position:"absolute",top:4,right:4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.white}`}}>{unreadBell>9?"9+":unreadBell}</div>}
+              🔔{unreadBell>0&&<div style={{position:"absolute",top:4,right:4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.white}`}}>{unreadBell>9?"9+":unreadBell}</div>}
             </button>
-            {/* Votes pending pill — tappable shortcut */}
-            {pendingCount>0&&<button onClick={()=>setVotePopupOpen(true)} style={{display:"flex",alignItems:"center",gap:5,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,border:"none",borderRadius:99,padding:"6px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 3px 12px rgba(67,97,238,0.35)",animation:"pulse 2s ease-in-out infinite"}}>🗳️ {pendingCount}</button>}
+            {pendingCount>0&&<button onClick={()=>setVotePopupOpen(true)} style={{display:"flex",alignItems:"center",gap:5,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,border:"none",borderRadius:99,padding:"6px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 3px 12px rgba(67,97,238,0.35)"}} className="pulse">🗳️ {pendingCount}</button>}
             {isAdmin&&<button onClick={()=>setModal("groupSettings")} style={{background:C.primaryLight,border:"none",borderRadius:12,padding:"7px 11px",color:C.primary,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>⚙️</button>}
           </div>
         </div>
         {switcherOpen&&<GroupSwitcher allGroups={allGroups} currentGroupId={group.id} onSwitch={onSwitchGroup} onGoToGroups={onBack} C={C} onClose={()=>setSwitcherOpen(false)}/>}
       </div>
-
       {tabContent()}
-
       <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -4px 28px rgba(67,97,238,0.1)"}}>
         {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s"}}><span style={{fontSize:21}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>))}
       </nav>
-
       {renderModal()}
-      {votePopupOpen&&<VotePopup/>}
+      {votePopupOpen&&<VotePopupEl/>}
       <Toast toast={toast} C={C}/>
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  ROOT
-// ══════════════════════════════════════════════════════════════════
 export default function App(){
   const [authUser,setAuthUser]=useState(null);
   const [userProfile,setUserProfile]=useState(null);
