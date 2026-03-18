@@ -1013,7 +1013,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const saveGroupSettings=async f=>{await upGroup({name:f.name,monthlyAmount:Number(f.amount),icon:f.icon});showT("Saved! ✓");closeModal();};
   const saveUPI=async()=>{await upGroup({upiId:upiVal.trim()});setEditUPI(false);showT("UPI ID saved! 💳");};
 
-  const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"txn",icon:"📒",label:"Ledger"},{id:"vote",icon:"🗳️",label:totalVoteBadge>0?`Vote(${totalVoteBadge})`:"Vote"},{id:"goals",icon:"🎯",label:"Goals"},{id:"profile",icon:"👤",label:"Profile"}];
+  const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"events",icon:"🗓️",label:"Events"},{id:"vote",icon:"🗳️",label:totalVoteBadge>0?`Vote(${totalVoteBadge})`:"Vote"},{id:"goals",icon:"🎯",label:"Goals"},{id:"txn",icon:"📒",label:"Ledger"},{id:"profile",icon:"👤",label:"Profile"}];
 
   const tabContent=()=>{
     if(tab==="profile")return<ProfileTab userProfile={userProfile} onUpdateProfile={onUpdateProfile} dark={dark} onToggleDark={onToggleDark} onBack={onBack} C={C}/>;
@@ -1409,7 +1409,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       </div>
       {tabContent()}
       <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -4px 28px rgba(67,97,238,0.1)"}}>
-        {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",fontSize:9,display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s",position:"relative"}}><span style={{fontSize:20}}>{t.icon}</span><span style={{fontSize:9}}>{t.label}</span>{t.id==="vote"&&totalVoteBadge>0&&<div style={{position:"absolute",top:6,right:"12%",width:16,height:16,borderRadius:"50%",background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{totalVoteBadge}</div>}</button>))}
+        {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"9px 1px 7px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",fontSize:8,display:"flex",flexDirection:"column",alignItems:"center",gap:2,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s",position:"relative"}}><span style={{fontSize:18}}>{t.icon}</span><span style={{fontSize:8,letterSpacing:-0.2}}>{t.label}</span>{t.id==="vote"&&totalVoteBadge>0&&<div style={{position:"absolute",top:5,right:"8%",width:14,height:14,borderRadius:"50%",background:C.red,color:"#fff",fontSize:8,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center"}}>{totalVoteBadge}</div>}</button>))}
       </nav>
       {renderModal()}
       <Toast toast={toast} C={C}/>
