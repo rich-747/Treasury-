@@ -1279,7 +1279,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           const overdueMonths=Math.max(0,monthsSinceJoined-months);
           const overdueAmt=overdueMonths*monthlyAmt;
           return(<div key={m.uid} style={K(C,{padding:"14px 16px",marginBottom:10})}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:isAdmin&&!isMe?10:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:isAdmin?10:0}}>
               <div style={{position:"relative",flexShrink:0}}>
                 <div style={{width:46,height:46,borderRadius:15,background:bgs[i%bgs.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:`2px solid ${C.border}`}}>{m.avatar}</div>
                 {m.isAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#FFD84D",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`}}>👑</div>}
@@ -1306,7 +1306,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                 </div>
               </div>
             </div>
-            {isAdmin&&!isMe&&(
+            {isAdmin&&(
               <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:10,borderTop:`1px solid ${C.border}`}}>
                 {/* Mark Paid — always visible for admin, greyed out if already paid */}
                 <button
@@ -1314,11 +1314,11 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                   disabled={paid}
                   style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:paid?C.bg:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:paid?C.muted:"#fff",fontSize:12,fontWeight:800,cursor:paid?"default":"pointer",fontFamily:"inherit",boxShadow:paid?"none":"0 3px 10px rgba(6,214,160,0.28)",opacity:paid?0.5:1}}
                 >{paid?"✓ Paid":"✓ Mark Paid"}</button>
-                {/* WhatsApp — only if not paid */}
-                {!paid&&<button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}>🟢 WhatsApp</button>}
-                {!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
-                {m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
-                <button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>
+                {/* WhatsApp + Remove — only for other members, not yourself */}
+                {!isMe&&!paid&&<button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}>🟢 WhatsApp</button>}
+                {!isMe&&!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
+                {!isMe&&m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
+                {!isMe&&<button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>}
               </div>
             )}
           </div>);
