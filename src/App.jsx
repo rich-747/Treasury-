@@ -1013,7 +1013,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const saveGroupSettings=async f=>{await upGroup({name:f.name,monthlyAmount:Number(f.amount),icon:f.icon});showT("Saved! ✓");closeModal();};
   const saveUPI=async()=>{await upGroup({upiId:upiVal.trim()});setEditUPI(false);showT("UPI ID saved! 💳");};
 
-  const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"events",icon:"🗓️",label:"Events"},{id:"vote",icon:"🗳️",label:totalVoteBadge>0?`Vote(${totalVoteBadge})`:"Vote"},{id:"goals",icon:"🎯",label:"Goals"},{id:"profile",icon:"👤",label:"Profile"}];
+  const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"txn",icon:"📒",label:"Ledger"},{id:"vote",icon:"🗳️",label:totalVoteBadge>0?`Vote(${totalVoteBadge})`:"Vote"},{id:"goals",icon:"🎯",label:"Goals"},{id:"profile",icon:"👤",label:"Profile"}];
 
   const tabContent=()=>{
     if(tab==="profile")return<ProfileTab userProfile={userProfile} onUpdateProfile={onUpdateProfile} dark={dark} onToggleDark={onToggleDark} onBack={onBack} C={C}/>;
@@ -1061,6 +1061,241 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         <div style={{display:"flex",gap:10}}><button style={{...Bt(C,"g",{flex:1,padding:"14px",fontSize:14,borderRadius:16})}} className="btn-g" onClick={()=>setModal("addExpense")}>💸 Request Expense</button></div>
         {pendingVotes.length>0&&<div style={{...K(C,{border:`2px solid ${C.primaryMid}`,cursor:"pointer",background:C.primaryLight,marginTop:14})}} className="lift" onClick={()=>setTab("vote")}><div style={{fontWeight:800,color:C.primary,fontSize:14,marginBottom:10}}>🗳️ {pendingVotes.length} vote{pendingVotes.length>1?"s":""} need your attention!</div>{pendingVotes.slice(0,2).map(v=>(<div key={v.id} style={{padding:"10px 12px",background:C.white,borderRadius:14,marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{color:C.text,fontSize:13,fontWeight:700}}>{v.title}</span><span style={{color:C.primary,fontSize:14,fontWeight:900}}>{fmtI(v.amount)}</span></div><div style={{background:C.primaryMid,borderRadius:99,height:7}}><div style={{height:"100%",width:`${Math.min((v.approvals.length/required)*100,100)}%`,background:C.primary,borderRadius:99}}/></div><div style={{fontSize:11,color:C.textSub,marginTop:4,fontWeight:600}}>{v.approvals.length}/{required} approvals · Tap to vote →</div></div>))}</div>}
       </div>);
+    }
+    // ━━━━ LEDGER / TRANSACTIONS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if(tab==="txn"){
+      // Build unified transaction list from all 4 sources
+      const allTxns = [
+        // 1. Member payments (money IN)
+        ...(gData.contributions||[]).map(c=>{
+          const m = members.find(x=>x.uid===c.memberId);
+          return {
+            id:`c-${c.id}`, type:"payment",
+            icon:"💳", color:C.green, colorLight:C.greenLight,
+            label:`${m?.name||"Member"} paid dues`,
+            subLabel:`${m?.avatar||"👤"} ${MONTHS[new Date(c.date).getMonth()]} ${new Date(c.date).getFullYear()} contribution`,
+            amount:+c.amount, direction:"in",
+            date:c.date, month:c.month||getMK(new Date(c.date)),
+            memberName:m?.name||"Member", memberAvatar:m?.avatar||"👤",
+          };
+        }),
+        // 2. Approved expenses (money OUT)
+        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&!e.emergencyId).map(e=>({
+          id:`e-${e.id}`, type:"expense",
+          icon:"💸", color:C.red, colorLight:C.redLight,
+          label:e.title,
+          subLabel:`${e.category} · Approved by vote`,
+          amount:+e.amount, direction:"out",
+          date:e.date, month:getMK(new Date(e.date)),
+          memberName:"Group", memberAvatar:"🗳️",
+        })),
+        // 3. Emergency releases (money OUT)
+        ...(gData.expenses||[]).filter(e=>e.status==="approved"&&e.emergencyId).map(e=>({
+          id:`em-${e.id}`, type:"emergency",
+          icon:"🆘", color:"#FF6B35", colorLight:"#FFF0E8",
+          label:e.title,
+          subLabel:`Emergency fund release`,
+          amount:+e.amount, direction:"out",
+          date:e.date, month:getMK(new Date(e.date)),
+          memberName:"Emergency", memberAvatar:"🆘",
+        })),
+        // 4. Savings goal contributions (money allocated)
+        ...(gData.savingsGoals||[]).flatMap(g=>
+          (g.contributions||[]).map(c=>{
+            const m = members.find(x=>x.uid===c.by);
+            return {
+              id:`g-${g.id}-${c.date}`, type:"goal",
+              icon:"🎯", color:C.purple, colorLight:C.purpleLight,
+              label:`${g.title}`,
+              subLabel:`${m?.avatar||"👤"} ${m?.name||"Member"} added to goal`,
+              amount:+c.amount, direction:"save",
+              date:c.date, month:getMK(new Date(c.date)),
+              memberName:m?.name||"Member", memberAvatar:m?.avatar||"👤",
+            };
+          })
+        ),
+      ].sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+      // Compute running balance (payments in - expenses out - emergency out)
+      let runBal = 0;
+      const withBal = [...allTxns].reverse().map(t=>{
+        if(t.direction==="in") runBal+=t.amount;
+        else if(t.direction==="out") runBal-=t.amount;
+        return {...t, runningBal:runBal};
+      }).reverse();
+
+      // Summary totals
+      const totalIn  = allTxns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
+      const totalOut = allTxns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
+      const totalSaved = allTxns.filter(t=>t.direction==="save").reduce((s,t)=>s+t.amount,0);
+
+      // All unique months for filter
+      const allMonths = [...new Set(allTxns.map(t=>t.month))].sort((a,b)=>b.localeCompare(a));
+
+      // Inner component with its own state
+      const LedgerView = () => {
+        const [search, setSearch] = useState("");
+        const [filterMonth, setFilterMonth] = useState("all");
+        const [filterType, setFilterType] = useState("all");
+
+        const filtered = withBal.filter(t=>{
+          const matchSearch = !search || t.label.toLowerCase().includes(search.toLowerCase()) || t.memberName.toLowerCase().includes(search.toLowerCase());
+          const matchMonth = filterMonth==="all" || t.month===filterMonth;
+          const matchType = filterType==="all" || t.type===filterType;
+          return matchSearch && matchMonth && matchType;
+        });
+
+        // Group by month for display
+        const grouped = filtered.reduce((acc,t)=>{
+          const key = t.month;
+          if(!acc[key]) acc[key]=[];
+          acc[key].push(t);
+          return acc;
+        },{});
+        const sortedMonths = Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+
+        const fmtMonth = m => {
+          const [yr,mo] = m.split("-");
+          return `${MONTHS[parseInt(mo)-1]} ${yr}`;
+        };
+
+        const typeFilters = [
+          {v:"all",l:"All",icon:"📋"},
+          {v:"payment",l:"Payments",icon:"💳"},
+          {v:"expense",l:"Expenses",icon:"💸"},
+          {v:"emergency",l:"SOS",icon:"🆘"},
+          {v:"goal",l:"Goals",icon:"🎯"},
+        ];
+
+        return(
+          <div style={{padding:"16px 16px 8px"}} className="fade-up">
+            {/* Header */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontWeight:900,color:C.text,fontSize:20,letterSpacing:-0.5}}>Ledger</div>
+              <div style={{fontSize:12,color:C.textSub,marginTop:2}}>{allTxns.length} transactions · all time</div>
+            </div>
+
+            {/* Summary cards */}
+            <div style={{display:"flex",gap:10,marginBottom:16}}>
+              {[
+                {label:"Total In",val:fmtI(totalIn),icon:"📥",color:C.green,bg:C.greenLight},
+                {label:"Total Out",val:fmtI(totalOut),icon:"📤",color:C.red,bg:C.redLight},
+                {label:"Balance",val:fmtI(totalBal),icon:"💰",color:C.primary,bg:C.primaryLight},
+              ].map(s=>(
+                <div key={s.label} style={{flex:1,background:s.bg,borderRadius:18,padding:"12px 10px",textAlign:"center",border:`1px solid ${s.color}22`}}>
+                  <div style={{fontSize:18,marginBottom:4}}>{s.icon}</div>
+                  <div style={{fontSize:13,fontWeight:900,color:s.color}}>{s.val}</div>
+                  <div style={{fontSize:10,color:s.color,fontWeight:700,opacity:0.7,marginTop:2}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Search bar */}
+            <div style={{position:"relative",marginBottom:12}}>
+              <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:16,pointerEvents:"none"}}>🔍</span>
+              <input
+                style={{...I(C),paddingLeft:42,marginBottom:0}}
+                placeholder="Search transactions..."
+                value={search}
+                onChange={e=>setSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Type filter chips */}
+            <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+              {typeFilters.map(f=>(
+                <button key={f.v} onClick={()=>setFilterType(f.v)}
+                  style={{display:"flex",alignItems:"center",gap:5,padding:"6px 14px",borderRadius:99,border:`1.5px solid ${filterType===f.v?C.primary:C.border}`,background:filterType===f.v?C.primaryLight:C.white,color:filterType===f.v?C.primary:C.textSub,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0,transition:"all 0.15s"}}
+                >{f.icon} {f.l}</button>
+              ))}
+            </div>
+
+            {/* Month filter */}
+            <div style={{marginBottom:16}}>
+              <select
+                style={{...I(C),marginBottom:0,fontSize:13}}
+                value={filterMonth}
+                onChange={e=>setFilterMonth(e.target.value)}
+              >
+                <option value="all">📅 All months</option>
+                {allMonths.map(m=><option key={m} value={m}>{fmtMonth(m)}</option>)}
+              </select>
+            </div>
+
+            {/* Empty state */}
+            {filtered.length===0&&(
+              <div style={{...K(C),textAlign:"center",padding:"48px 20px"}}>
+                <div style={{fontSize:48,marginBottom:12}}>📭</div>
+                <div style={{fontWeight:800,color:C.text,fontSize:16,marginBottom:6}}>No transactions found</div>
+                <div style={{color:C.textSub,fontSize:13}}>Try changing your search or filters</div>
+              </div>
+            )}
+
+            {/* Grouped transactions */}
+            {sortedMonths.map(month=>{
+              const txns = grouped[month];
+              const monthIn  = txns.filter(t=>t.direction==="in").reduce((s,t)=>s+t.amount,0);
+              const monthOut = txns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
+              return(
+                <div key={month} style={{marginBottom:20}}>
+                  {/* Month header */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div style={{fontSize:13,fontWeight:900,color:C.text}}>{fmtMonth(month)}</div>
+                    <div style={{display:"flex",gap:10}}>
+                      {monthIn>0&&<span style={{fontSize:11,fontWeight:800,color:C.greenDark}}>+{fmtI(monthIn)}</span>}
+                      {monthOut>0&&<span style={{fontSize:11,fontWeight:800,color:C.red}}>-{fmtI(monthOut)}</span>}
+                    </div>
+                  </div>
+
+                  {/* Transaction cards */}
+                  <div style={{background:C.white,borderRadius:20,overflow:"hidden",border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(67,97,238,0.06)"}}>
+                    {txns.map((t,i)=>(
+                      <div key={t.id} style={{
+                        display:"flex",alignItems:"center",gap:12,
+                        padding:"14px 16px",
+                        borderBottom: i<txns.length-1 ? `1px solid ${C.border}` : "none",
+                      }}>
+                        {/* Icon */}
+                        <div style={{
+                          width:42,height:42,borderRadius:14,
+                          background:t.colorLight,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:20,flexShrink:0,
+                          border:`1.5px solid ${t.color}22`,
+                        }}>{t.icon}</div>
+
+                        {/* Details */}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontWeight:700,color:C.text,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.label}</div>
+                          <div style={{fontSize:11,color:C.muted,marginTop:2,fontWeight:600}}>{t.subLabel}</div>
+                          <div style={{fontSize:10,color:C.muted,marginTop:2,fontWeight:500}}>{fmtD(t.date)}</div>
+                        </div>
+
+                        {/* Amount */}
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{
+                            fontSize:15,fontWeight:900,
+                            color: t.direction==="in"?C.greenDark : t.direction==="out"?C.red : C.purple,
+                          }}>
+                            {t.direction==="in"?"+":t.direction==="out"?"-":"~"}{fmtI(t.amount)}
+                          </div>
+                          <div style={{fontSize:10,color:C.muted,marginTop:3,fontWeight:600}}>
+                            Bal: {fmtI(t.runningBal)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Bottom padding */}
+            <div style={{height:8}}/>
+          </div>
+        );
+      };
+      return <LedgerView/>;
     }
     if(tab==="members"){
       const bgs=[C.primaryLight,C.greenLight,C.yellowLight,C.purpleLight,"#FFF0F6",C.redLight];
