@@ -995,6 +995,30 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   useEffect(()=>{const h=e=>{if(headerRef.current&&!headerRef.current.contains(e.target))setSwitcherOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
   useEffect(()=>{const unsub=onSnapshot(doc(db,"groups",group.id),snap=>{if(snap.exists()){const d={id:snap.id,...snap.data()};setGData(d);setUpiVal(d.upiId||"");}setLoading(false);});return()=>unsub();},[group.id]);
 
+  // Vote popup useEffect — must be BEFORE any early returns (hooks rules)
+  useEffect(()=>{
+    if(!gData||loading||votePopupShown)return;
+    const mbs=gData.members||[];
+    const req=Math.max(1,Math.ceil(mbs.length*2/3));
+    const pending=[
+      ...(gData.votes||[]).filter(v=>v.status==="pending"),
+      ...(gData.emergencyRequests||[]).filter(r=>r.status==="pending"),
+      ...(gData.adminVotes||[]).filter(v=>v.status==="pending"),
+      ...(gData.memberRemovalVotes||[]).filter(v=>v.status==="pending"),
+      ...(gData.goalReleaseVotes||[]).filter(v=>v.status==="pending"),
+      ...(gData.monthlyAmountVotes||[]).filter(v=>v.status==="pending"),
+    ].filter(v=>
+      !(v.approvals||[]).includes(userProfile.uid)&&
+      !(v.rejections||[]).includes(userProfile.uid)&&
+      v.requestedBy!==userProfile.uid&&
+      v.memberId!==userProfile.uid
+    );
+    if(pending.length>0){
+      const t=setTimeout(()=>{setVotePopupOpen(true);setVotePopupShown(true);},800);
+      return()=>clearTimeout(t);
+    }
+  },[gData,loading,votePopupShown]);
+
   // Reset modal state when modal closes
   const closeModal=()=>{
     setModal(null);
@@ -1046,14 +1070,6 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     return !approvals.includes(userProfile.uid)&&!rejections.includes(userProfile.uid)&&v.requestedBy!==userProfile.uid&&v.memberId!==userProfile.uid;
   });
   const unreadBell=pendingCount+(gData.announcements||[]).length+(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid&&!n.read).length;
-
-  // Show popup once per session
-  useEffect(()=>{
-    if(!votePopupShown&&myPendingVotes.length>0&&!loading){
-      const t=setTimeout(()=>{setVotePopupOpen(true);setVotePopupShown(true);},800);
-      return()=>clearTimeout(t);
-    }
-  },[loading,votePopupShown,myPendingVotes.length]);
 
   // ── Actions ────────────────────────────────────────────────────
   const markPaid=async mid=>{if(paidIds.includes(mid)){showT("Already paid!","info");return;}await upGroup({contributions:[...(gData.contributions||[]),{id:gData.nextId,memberId:mid,month:thisMonth,amount:gData.monthlyAmount||200,date:new Date().toISOString(),markedBy:userProfile.uid}],nextId:(gData.nextId||100)+1});showT("Payment marked ✓");};
@@ -1449,7 +1465,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   };
 
   // ── Vote Popup ─────────────────────────────────────────────────
-  const VotePopupEl=()=>{
+  const renderVotePopup=()=>{
     const typeConfig={
       expense:      {icon:"💸",color:C.primary,bg:C.primaryLight,label:"Expense"},
       emergency:    {icon:"🆘",color:C.red,    bg:C.redLight,   label:"Emergency"},
@@ -1538,7 +1554,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s"}}><span style={{fontSize:21}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>))}
       </nav>
       {renderModal()}
-      {votePopupOpen&&<VotePopupEl/>}
+      {votePopupOpen&&renderVotePopup()}
       <Toast toast={toast} C={C}/>
     </div>
   );
