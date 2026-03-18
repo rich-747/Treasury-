@@ -1158,6 +1158,51 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             <div style={{display:"flex",gap:28,marginTop:18}}>{[["COLLECTED",fmtI(tc),"#A5BAFF"],["SPENT",fmtI(ts),"#FF9BAE"],["MEMBERS",members.length,"#A5E8D9"]].map(([l,v,c])=>(<div key={l}><div style={{fontSize:9,color:"rgba(255,255,255,0.45)",fontWeight:800,letterSpacing:1.5}}>{l}</div><div style={{color:c,fontSize:15,fontWeight:900,marginTop:4}}>{v}</div></div>))}</div>
           </div>
         </div>
+        {/* My Dues Card — personal payment status */}
+        {(()=>{
+          const iMePaid = paidIds.includes(userProfile.uid);
+          const myMonthlyAmt = gData.monthlyAmount||200;
+          // Calculate how many months I have missed (unpaid months in past)
+          const allMyContribs = (gData.contributions||[]).filter(c=>c.memberId===userProfile.uid);
+          const joinedMonth = members.find(m=>m.uid===userProfile.uid)?.joinedAt ? getMK(new Date(members.find(m=>m.uid===userProfile.uid).joinedAt)) : thisMonth;
+          return(
+            <div style={{
+              borderRadius:20,marginBottom:14,overflow:"hidden",
+              border:`2px solid ${iMePaid?C.green+"55":C.red+"44"}`,
+              boxShadow:`0 4px 20px ${iMePaid?"rgba(6,214,160,0.12)":"rgba(239,35,60,0.1)"}`,
+            }}>
+              {/* Top colored strip */}
+              <div style={{background:iMePaid?`linear-gradient(135deg,${C.green},${C.greenDark})`:`linear-gradient(135deg,${C.red},#C0182C)`,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:38,height:38,borderRadius:12,background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{iMePaid?"✅":"⚠️"}</div>
+                  <div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:700,letterSpacing:0.5}}>YOUR DUES — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
+                    <div style={{fontSize:18,fontWeight:900,color:"#fff",marginTop:2}}>{iMePaid?"All paid up! 🎉":"Payment pending"}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:24,fontWeight:900,color:"#fff"}}>{fmtI(myMonthlyAmt)}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:600}}>this month</div>
+                </div>
+              </div>
+              {/* Bottom action area */}
+              <div style={{background:C.white,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div>
+                  <div style={{fontSize:12,color:C.textSub,fontWeight:600}}>Total paid all time</div>
+                  <div style={{fontSize:15,fontWeight:900,color:C.primary,marginTop:2}}>{fmtI(allMyContribs.reduce((s,c)=>s+c.amount,0))} · {allMyContribs.length} month{allMyContribs.length!==1?"s":""}</div>
+                </div>
+                {!iMePaid&&gData.upiId&&(
+                  <button
+                    onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI copied! Pay "+fmtI(myMonthlyAmt));}}
+                    style={{...Bt(C,"p",{padding:"9px 16px",fontSize:13,borderRadius:12}),background:`linear-gradient(135deg,${C.purple},#9B59F5)`,boxShadow:"0 4px 14px rgba(123,47,190,0.3)"}}
+                    className="btn-p"
+                  >💳 Copy UPI</button>
+                )}
+                {iMePaid&&<div style={{...Pl(C,"green"),padding:"6px 14px",fontSize:12}}>✓ Paid {today.toLocaleString("default",{month:"short"})}</div>}
+              </div>
+            </div>
+          );
+        })()}
         {/* Invite */}
         <div style={{...K(C),border:`1.5px solid ${C.primaryMid}`,background:dark?C.white:C.primaryLight}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1218,7 +1263,21 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           </div>);})}
         </div>}
         {members.map((m,i)=>{
-          const paid=paidIds.includes(m.uid);const total=(gData.contributions||[]).filter(c=>c.memberId===m.uid).reduce((s,c)=>s+c.amount,0);const months=(gData.contributions||[]).filter(c=>c.memberId===m.uid).length;const isMe=m.uid===userProfile.uid;
+          const paid=paidIds.includes(m.uid);
+          const total=(gData.contributions||[]).filter(c=>c.memberId===m.uid).reduce((s,c)=>s+c.amount,0);
+          const months=(gData.contributions||[]).filter(c=>c.memberId===m.uid).length;
+          const isMe=m.uid===userProfile.uid;
+          const monthlyAmt=gData.monthlyAmount||200;
+          // Calculate overdue months — months since joining minus months paid
+          const joinedAt=m.joinedAt?new Date(m.joinedAt):new Date();
+          const joinedMonth=getMK(joinedAt);
+          const monthsSinceJoined=Math.max(0,(()=>{
+            const [jy,jm]=joinedMonth.split("-").map(Number);
+            const [ty,tm]=thisMonth.split("-").map(Number);
+            return(ty-jy)*12+(tm-jm)+1;
+          })());
+          const overdueMonths=Math.max(0,monthsSinceJoined-months);
+          const overdueAmt=overdueMonths*monthlyAmt;
           return(<div key={m.uid} style={K(C,{padding:"14px 16px",marginBottom:10})}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:isAdmin&&!isMe?10:0}}>
               <div style={{position:"relative",flexShrink:0}}>
@@ -1226,10 +1285,26 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                 {m.isAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#FFD84D",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`}}>👑</div>}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontWeight:800,color:C.text,fontSize:15}}>{m.name}</span>{isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}{m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}</div>
-                <div style={{fontSize:11,color:C.muted,marginTop:3,fontWeight:600}}>{fmtI(total)} · {months} month{months!==1?"s":""}</div>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <span style={{fontWeight:800,color:C.text,fontSize:15}}>{m.name}</span>
+                  {isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}
+                  {m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginTop:3,fontWeight:600}}>{fmtI(total)} total · {months} month{months!==1?"s":""}</div>
+                {/* Pending amount row */}
+                {!paid&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5}}>
+                    <div style={{fontSize:13,fontWeight:900,color:C.red}}>{fmtI(monthlyAmt)} due</div>
+                    {overdueMonths>1&&<span style={{fontSize:10,fontWeight:800,background:C.redLight,color:C.red,padding:"2px 8px",borderRadius:99,border:`1px solid ${C.red}33`}}>+{overdueMonths-1} overdue</span>}
+                    {overdueAmt>monthlyAmt&&<span style={{fontSize:10,fontWeight:800,color:C.red,opacity:0.7}}>Total: {fmtI(overdueAmt)}</span>}
+                  </div>
+                )}
               </div>
-              <div style={{flexShrink:0}}><div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:800,background:paid?C.greenLight:C.redLight,color:paid?C.greenDark:C.red,border:`1.5px solid ${paid?C.green+"44":C.red+"44"}`}}>{paid?"✓ Paid":"● Unpaid"}</div></div>
+              <div style={{flexShrink:0}}>
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,padding:"5px 12px",borderRadius:99,fontSize:12,fontWeight:800,background:paid?C.greenLight:C.redLight,color:paid?C.greenDark:C.red,border:`1.5px solid ${paid?C.green+"44":C.red+"44"}`}}>
+                  {paid?`✓ ${fmtI(monthlyAmt)}`:`● ${fmtI(monthlyAmt)}`}
+                </div>
+              </div>
             </div>
             {isAdmin&&!isMe&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {!paid&&<><button onClick={()=>markPaid(m.uid)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 3px 10px rgba(6,214,160,0.28)"}}>✓ Mark Paid</button><button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}>🟢 WhatsApp</button></>}
