@@ -704,18 +704,138 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
 
     if(tab==="vote"){
       const allVotes=[...(gData.votes||[])].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+      const pendingERs=(gData.emergencyRequests||[]).filter(r=>r.status==="pending");
       return(
         <div style={{padding:"16px 16px 8px"}} className="fade-up">
-          <div style={{...K(C,{background:dark?"#2A1F0A":C.yellowLight,border:`1.5px solid ${C.yellow}55`,marginBottom:16})}}><div style={{display:"flex",gap:10,alignItems:"center"}}><div style={{fontSize:26}}>⚡</div><div><div style={{fontSize:12,color:"#B37A00",fontWeight:800}}>2/3 Majority Rule</div><div style={{fontSize:13,color:"#7A5000",marginTop:2,fontWeight:600}}>{required} of {members.length} votes needed to approve</div></div></div></div>
-          {pendingEmerg.length>0&&<><SH C={C} label={"🆘 Emergency Requests"}/>{(gData.emergencyRequests||[]).filter(r=>r.status==="pending").map(r=>{const myVoteA=r.approvals.includes(userProfile.uid);const myVoteR=(r.rejections||[]).includes(userProfile.uid);const pct=Math.min((r.approvals.length/required)*100,100);return(<div key={r.id} style={K(C,{border:`2px solid ${C.red}33`,background:dark?"#1a0a0a":C.redLight})}><div style={{display:"flex",gap:12,marginBottom:12}}><div style={{width:46,height:46,borderRadius:14,background:C.redLight,border:`2px solid ${C.red}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{r.memberAvatar||"👤"}</div><div style={{flex:1}}><div style={{color:C.red,fontWeight:900,fontSize:14,marginBottom:2}}>{r.memberName||"Member"} needs emergency help</div><div style={{color:C.text,fontSize:13,fontWeight:700}}>{r.reason}</div>{r.details&&<div style={{color:C.textSub,fontSize:12,marginTop:3}}>{r.details}</div>}</div><div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:20,fontWeight:900,color:C.red}}>{fmtI(r.amount)}</div><div style={{fontSize:10,color:C.textSub,marginTop:2}}>{fmtD(r.createdAt)}</div></div></div><div style={{background:`${C.red}22`,borderRadius:99,height:8,overflow:"hidden",marginBottom:8}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${C.red},#FF6B7A)`,borderRadius:99,transition:"width 0.7s"}}/></div><div style={{fontSize:12,color:C.textSub,marginBottom:12,fontWeight:600}}>{r.approvals.length} approved · {(r.rejections||[]).length} rejected · Need {required} to approve</div>{r.memberId===userProfile.uid?<div style={{...Pl(C,"blue"),width:"100%",justifyContent:"center",padding:"10px",fontSize:13}}>Your request is pending vote</div>:<div style={{display:"flex",gap:8}}><button style={{...Bt(C,"g",{flex:1,padding:"11px",fontSize:13,borderRadius:12,opacity:myVoteA?0.5:1})}} className="btn-g" onClick={()=>voteEmergency(r.id,true)}>{myVoteA?"✓ Approved":"👍 Approve"}</button><button style={{...Bt(C,"r",{flex:1,padding:"11px",fontSize:13,borderRadius:12,opacity:myVoteR?0.5:1})}} className="btn-r" onClick={()=>voteEmergency(r.id,false)}>{myVoteR?"✓ Rejected":"👎 Reject"}</button></div>}</div>);})</>}
-          {pendingAdminVotes.length>0&&<><SH C={C} label={"👑 Admin Nominations"}/>{pendingAdminVotes.map(v=>{const nom=members.find(m=>m.uid===v.nomineeUid);const pct=Math.min((v.approvals.length/required)*100,100);return(<div key={v.id} style={K(C,{border:`1.5px solid ${C.yellow}44`,background:dark?"#1a1400":C.yellowLight})}><div style={{display:"flex",gap:12,alignItems:"center",marginBottom:12}}><div style={{width:46,height:46,borderRadius:14,background:C.yellowLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{nom?.avatar}</div><div style={{flex:1}}><div style={{fontWeight:900,color:C.text,fontSize:14}}>{nom?.name}</div><div style={{fontSize:12,color:C.textSub}}>Nominated by {v.nominatedByName}</div></div><span style={Pl(C,"yellow")}>{v.approvals.length}/{required} votes</span></div><div style={{background:`${C.yellow}33`,borderRadius:99,height:8,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${C.yellow},#FFD84D)`,borderRadius:99,transition:"width 0.7s"}}/></div>{v.approvals.includes(userProfile.uid)?<div style={{...Pl(C,"green"),width:"100%",justifyContent:"center",padding:"10px",fontSize:13}}>✓ You supported this</div>:<button style={{...Bt(C,"y",{width:"100%",padding:"11px",fontSize:13,borderRadius:12,color:"#333"})}} className="btn-y" onClick={()=>voteForAdmin(v.id,true)}>👑 Support as Admin</button>}</div>);})</>}
-          <SH C={C} label={`💸 Expense Votes (${allVotes.length})`} action={()=>setModal("addExpense")} actionLabel="+ Request"/>
-          {allVotes.length===0&&<div style={{...K(C),textAlign:"center",padding:"36px 20px"}}><div style={{fontSize:40,marginBottom:10}}>🗳️</div><div style={{color:C.muted,fontSize:14,fontWeight:600}}>No expense votes yet</div></div>}
-          {allVotes.map(v=>{const pct=Math.min((v.approvals.length/required)*100,100);const myVote=v.approvals.includes(userProfile.uid)?"approved":v.rejections.includes(userProfile.uid)?"rejected":null;return(<div key={v.id} style={{...K(C,{cursor:"pointer"})}} className="lift" onClick={()=>setModal({type:"voteDetail",vote:v})}><div style={{display:"flex",gap:12,marginBottom:10}}><div style={{width:42,height:42,borderRadius:13,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0,fontWeight:800}}>₹</div><div style={{flex:1}}><div style={{fontWeight:800,color:C.text,fontSize:14}}>{v.title}</div><div style={{fontSize:12,color:C.textSub,marginTop:2}}>{v.category} · {fmtD(v.createdAt)} · by {v.requestedByName||"Member"}</div></div><div style={{textAlign:"right",flexShrink:0}}><div style={{color:C.primary,fontWeight:900,fontSize:17}}>{fmtI(v.amount)}</div><span style={Pl(C,v.status==="approved"?"green":v.status==="rejected"?"red":"yellow")}>{v.status}</span></div></div><div style={{background:C.primaryMid,borderRadius:99,height:8,overflow:"hidden",marginBottom:8}}><div style={{height:"100%",width:`${pct}%`,background:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 0.7s"}}/></div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.textSub,fontWeight:600}}><span>👍 {v.approvals.length} · 👎 {v.rejections.length} · Need {required}</span>{myVote&&<span style={{color:myVote==="approved"?C.greenDark:C.red}}>You: {myVote} ✓</span>}{!myVote&&v.status==="pending"&&<span style={{color:C.primary}}>Tap to vote →</span>}</div></div>);})}
+
+          <div style={{...K(C,{background:dark?"#2A1F0A":C.yellowLight,border:"1.5px solid #FFB70344",marginBottom:16})}}>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{fontSize:26}}>{"⚡"}</div>
+              <div>
+                <div style={{fontSize:12,color:"#B37A00",fontWeight:800}}>{"2/3 Majority Rule"}</div>
+                <div style={{fontSize:13,color:"#7A5000",marginTop:2,fontWeight:600}}>{required} of {members.length} votes needed to approve</div>
+              </div>
+            </div>
+          </div>
+
+          {pendingERs.length>0&&(
+            <div>
+              <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,marginTop:4}}>{"Emergency Requests"}</div>
+              {pendingERs.map(r=>{
+                const myA=r.approvals.includes(userProfile.uid);
+                const myR=(r.rejections||[]).includes(userProfile.uid);
+                const pct=Math.min((r.approvals.length/required)*100,100);
+                return(
+                  <div key={r.id} style={K(C,{border:"2px solid #EF233C33",background:dark?"#1a0a0a":C.redLight,marginBottom:12})}>
+                    <div style={{display:"flex",gap:12,marginBottom:10}}>
+                      <div style={{width:44,height:44,borderRadius:13,background:C.redLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                        {r.memberAvatar||"👤"}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{color:C.red,fontWeight:800,fontSize:13}}>{r.memberName||"Member"} needs help</div>
+                        <div style={{color:C.text,fontSize:13,fontWeight:700,marginTop:2}}>{r.reason}</div>
+                        {r.details&&<div style={{color:C.textSub,fontSize:11,marginTop:2}}>{r.details}</div>}
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div style={{fontSize:18,fontWeight:900,color:C.red}}>{fmtI(r.amount)}</div>
+                      </div>
+                    </div>
+                    <div style={{background:"#EF233C22",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
+                      <div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,#EF233C,#FF6B7A)",borderRadius:99}}/>
+                    </div>
+                    <div style={{fontSize:11,color:C.textSub,marginBottom:10,fontWeight:600}}>
+                      {r.approvals.length} approved of {required} needed
+                    </div>
+                    {r.memberId===userProfile.uid
+                      ?<div style={{...Pl(C,"blue"),justifyContent:"center",padding:"8px",fontSize:12,width:"100%"}}>{"Your request is pending"}</div>
+                      :<div style={{display:"flex",gap:8}}>
+                        <button style={{...Bt(C,"g",{flex:1,padding:"10px",fontSize:12,borderRadius:11,opacity:myA?0.5:1})}} className="btn-g" onClick={()=>voteEmergency(r.id,true)}>
+                          {myA?"Approved":"Approve"}
+                        </button>
+                        <button style={{...Bt(C,"r",{flex:1,padding:"10px",fontSize:12,borderRadius:11,opacity:myR?0.5:1})}} className="btn-r" onClick={()=>voteEmergency(r.id,false)}>
+                          {myR?"Rejected":"Reject"}
+                        </button>
+                      </div>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {pendingAdminVotes.length>0&&(
+            <div>
+              <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10,marginTop:4}}>{"Admin Nominations"}</div>
+              {pendingAdminVotes.map(v=>{
+                const nom=members.find(m=>m.uid===v.nomineeUid);
+                const pct=Math.min((v.approvals.length/required)*100,100);
+                return(
+                  <div key={v.id} style={K(C,{border:"1.5px solid #FFB70344",background:dark?"#1a1400":C.yellowLight,marginBottom:12})}>
+                    <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
+                      <div style={{width:44,height:44,borderRadius:13,background:C.yellowLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                        {nom&&nom.avatar}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:800,color:C.text,fontSize:14}}>{nom&&nom.name}</div>
+                        <div style={{fontSize:11,color:C.textSub}}>{"Nominated by "}{v.nominatedByName}</div>
+                      </div>
+                      <span style={Pl(C,"yellow")}>{v.approvals.length}/{required}</span>
+                    </div>
+                    <div style={{background:"#FFB70333",borderRadius:99,height:7,overflow:"hidden",marginBottom:10}}>
+                      <div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,#FFB703,#FFD84D)",borderRadius:99}}/>
+                    </div>
+                    {v.approvals.includes(userProfile.uid)
+                      ?<div style={{...Pl(C,"green"),justifyContent:"center",padding:"9px",fontSize:12,width:"100%"}}>{"You supported this"}</div>
+                      :<button style={{...Bt(C,"y",{width:"100%",padding:"10px",fontSize:13,borderRadius:11,color:"#333"})}} className="btn-y" onClick={()=>voteForAdmin(v.id,true)}>{"Support as Admin"}</button>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,marginTop:4}}>
+            <div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase"}}>{"Expense Votes ("}{allVotes.length}{")"}</div>
+            <button onClick={()=>setModal("addExpense")} style={{...Bt(C,"gh",{padding:"5px 12px",fontSize:12,borderRadius:10})}}>{"+ Request"}</button>
+          </div>
+
+          {allVotes.length===0&&(
+            <div style={{...K(C),textAlign:"center",padding:"36px 20px"}}>
+              <div style={{fontSize:40,marginBottom:10}}>🗳️</div>
+              <div style={{color:C.muted,fontSize:14,fontWeight:600}}>{"No expense votes yet"}</div>
+            </div>
+          )}
+
+          {allVotes.map(v=>{
+            const pct=Math.min((v.approvals.length/required)*100,100);
+            const myVote=v.approvals.includes(userProfile.uid)?"approved":v.rejections.includes(userProfile.uid)?"rejected":null;
+            return(
+              <div key={v.id} style={{...K(C,{cursor:"pointer"})}} className="lift" onClick={()=>setModal({type:"voteDetail",vote:v})}>
+                <div style={{display:"flex",gap:12,marginBottom:10}}>
+                  <div style={{width:42,height:42,borderRadius:13,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,fontWeight:900,color:C.primary}}>{"Rs"}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,color:C.text,fontSize:14}}>{v.title}</div>
+                    <div style={{fontSize:12,color:C.textSub,marginTop:2}}>{v.category} · {fmtD(v.createdAt)}</div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{color:C.primary,fontWeight:900,fontSize:16}}>{fmtI(v.amount)}</div>
+                    <span style={Pl(C,v.status==="approved"?"green":v.status==="rejected"?"red":"yellow")}>{v.status}</span>
+                  </div>
+                </div>
+                <div style={{background:C.primaryMid,borderRadius:99,height:7,overflow:"hidden",marginBottom:7}}>
+                  <div style={{height:"100%",width:pct+"%",background:"linear-gradient(90deg,"+C.primary+",#7B9EFF)",borderRadius:99}}/>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.textSub,fontWeight:600}}>
+                  <span>{"Approve:"} {v.approvals.length} {"· Reject:"} {v.rejections.length} {"· Need"} {required}</span>
+                  {myVote&&<span style={{color:myVote==="approved"?C.greenDark:C.red}}>{"You: "}{myVote}</span>}
+                  {!myVote&&v.status==="pending"&&<span style={{color:C.primary}}>{"Tap to vote"}</span>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       );
     }
-
     if(tab==="goals"){
       const goals=gData.savingsGoals||[];
       return(
