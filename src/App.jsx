@@ -53,22 +53,26 @@ const isEventPast = dateStr => { if(!dateStr) return false; const d=new Date(dat
 
 // ── Theme ─────────────────────────────────────────────────────────
 const getC = dark => ({
-  bg:           dark?"#080F1A":"#F8FAFC",
-  white:        dark?"#111827":"#FFFFFF",
-  border:       dark?"#1F2D3D":"#E2E8F0",
-  primary:      "#10B981",
-  primaryDark:  "#059669",
-  primaryLight: dark?"#052E1C":"#ECFDF5",
-  primaryMid:   dark?"#052E1C":"#D1FAE5",
+  bg:           dark?"#080D1A":"#F1F5F9",
+  white:        dark?"#0F1B2D":"#FFFFFF",
+  border:       dark?"#1A2A40":"#E2E8F0",
+  primary:      "#6366F1",
+  primaryDark:  "#4F46E5",
+  primaryLight: dark?"#1A1B4B":"#EEF2FF",
+  primaryMid:   dark?"#1A1B4B":"#E0E7FF",
   green:        "#10B981",
   greenLight:   dark?"#052E1C":"#ECFDF5",
   greenDark:    "#059669",
-  red:          "#EF4444",
-  redLight:     dark?"#2D0A0A":"#FEF2F2",
+  red:          "#F43F5E",
+  redLight:     dark?"#2D0814":"#FFF1F3",
   yellow:       "#F59E0B",
   yellowLight:  dark?"#2D1A00":"#FFFBEB",
   purple:       "#8B5CF6",
-  purpleLight:  dark?"#1E1040":"#F5F3FF",
+  purpleLight:  dark?"#1A0F40":"#F5F3FF",
+  sky:          "#0EA5E9",
+  skyLight:     dark?"#062030":"#F0F9FF",
+  orange:       "#F97316",
+  orangeLight:  dark?"#2D1000":"#FFF7ED",
   text:         dark?"#F1F5F9":"#0F172A",
   textSub:      dark?"#94A3B8":"#475569",
   muted:        dark?"#64748B":"#94A3B8",
@@ -107,9 +111,9 @@ const GS = (C,dark) => `
   .pulse{animation:pulse 1.5s ease-in-out infinite;}
   .lift{transition:transform 0.18s,box-shadow 0.18s;}
   .lift:hover{transform:translateY(-2px);}
-  .btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,0.4)!important;}
+  .btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,0.4)!important;}
   .btn-g:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,0.4)!important;}
-  .btn-r:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(239,68,68,0.4)!important;}
+  .btn-r:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(244,63,94,0.4)!important;}
   .btn-y:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,0.4)!important;}
   .nav-btn:hover{background:${C.primaryLight}!important;}
   .switcher-btn:hover{background:${C.primaryLight}!important;border-color:${C.primary}!important;}
@@ -128,7 +132,7 @@ const Bt = (C,v="p",x={}) => ({
   background:v==="p"?C.primary:v==="g"?C.green:v==="r"?C.red:v==="y"?"#FFB703":v==="w"?C.white:v==="pu"?C.purple:"transparent",
   color:v==="gh"?C.textSub:v==="w"?C.primary:"#fff",
   fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",
-  boxShadow:v==="p"?"0 4px 16px rgba(16,185,129,0.3)":v==="g"?"0 4px 16px rgba(16,185,129,0.3)":v==="r"?"0 4px 16px rgba(239,68,68,0.25)":v==="y"?"0 4px 16px rgba(245,158,11,0.3)":v==="pu"?"0 4px 16px rgba(139,92,246,0.3)":"none",
+  boxShadow:v==="p"?"0 4px 16px rgba(99,102,241,0.3)":v==="g"?"0 4px 16px rgba(16,185,129,0.3)":v==="r"?"0 4px 16px rgba(244,63,94,0.25)":v==="y"?"0 4px 16px rgba(245,158,11,0.3)":v==="pu"?"0 4px 16px rgba(139,92,246,0.3)":"none",
   transition:"transform 0.18s,box-shadow 0.18s",...x,
 });
 
@@ -1165,7 +1169,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     }
   };
 
-  const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"events",icon:"🗓️",label:"Events"},{id:"goals",icon:"🎯",label:"Goals"},{id:"txn",icon:"📒",label:"Ledger"},{id:"profile",icon:"👤",label:"Profile"}];
+  const tabs=[{id:"dashboard",icon:"🏠",label:"Home",color:"#6366F1"},{id:"members",icon:"👥",label:"Squad",color:"#0EA5E9"},{id:"events",icon:"🗓️",label:"Events",color:"#F59E0B"},{id:"goals",icon:"🎯",label:"Goals",color:"#8B5CF6"},{id:"txn",icon:"📒",label:"Ledger",color:"#10B981"},{id:"profile",icon:"👤",label:"Profile",color:"#F43F5E"}];
 
   // ── Tab Content ────────────────────────────────────────────────
   const tabContent=()=>{
@@ -1182,22 +1186,42 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       const expPending=allPendingVotes.filter(v=>v.voteType==="expense");
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
         {/* Hero */}
-        <div style={{background:"linear-gradient(135deg,#0F172A 0%,#1E293B 100%)",borderRadius:24,padding:"26px 22px",marginBottom:16,position:"relative",overflow:"hidden",boxShadow:"0 16px 48px rgba(15,23,42,0.35)"}}>
-          <div style={{position:"absolute",top:-40,right:-40,width:160,height:160,borderRadius:"50%",background:"rgba(16,185,129,0.08)"}}/>
-          <div style={{position:"absolute",bottom:-30,left:-20,width:120,height:120,borderRadius:"50%",background:"rgba(16,185,129,0.05)"}}/>
+        <div style={{background:"linear-gradient(140deg,#0F172A 0%,#1E1B4B 55%,#1e293b 100%)",borderRadius:24,padding:"26px 22px",marginBottom:14,position:"relative",overflow:"hidden",boxShadow:"0 20px 60px rgba(15,23,42,0.45)"}}>
+          <div style={{position:"absolute",top:-60,right:-40,width:220,height:220,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,0.22) 0%,transparent 70%)"}}/>
+          <div style={{position:"absolute",bottom:-50,left:-30,width:180,height:180,borderRadius:"50%",background:"radial-gradient(circle,rgba(16,185,129,0.12) 0%,transparent 70%)"}}/>
+          <div style={{position:"absolute",top:"40%",right:"20%",width:80,height:80,borderRadius:"50%",background:"radial-gradient(circle,rgba(139,92,246,0.15) 0%,transparent 70%)"}}/>
           <div style={{position:"relative"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{width:36,height:36,borderRadius:10,background:"rgba(16,185,129,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{gData.icon||"💰"}</div>
-                <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:-0.2}}>{gData.name}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:40,height:40,borderRadius:13,background:"linear-gradient(135deg,rgba(99,102,241,0.35),rgba(99,102,241,0.1))",border:"1px solid rgba(99,102,241,0.25)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:21}}>{gData.icon||"💰"}</div>
+                <div>
+                  <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{gData.name}</div>
+                  <div style={{fontSize:9,color:"rgba(99,102,241,0.75)",fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginTop:1}}>TREASURY</div>
+                </div>
               </div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",fontWeight:600,background:"rgba(255,255,255,0.08)",padding:"5px 12px",borderRadius:99,letterSpacing:0.3}}>{dateStr}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",background:"rgba(255,255,255,0.07)",padding:"5px 12px",borderRadius:99,fontWeight:500}}>{dateStr}</div>
             </div>
-            <div style={{fontSize:10,color:"rgba(16,185,129,0.8)",fontWeight:700,letterSpacing:2.5,textTransform:"uppercase",marginBottom:8}}>Treasury Balance</div>
-            <div style={{fontSize:44,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1.05}}>{fmtI(totalBal)}</div>
-            <div style={{width:48,height:3,background:"#10B981",borderRadius:99,marginTop:14,marginBottom:18}}/>
-            <div style={{display:"flex",gap:24}}>{[["Collected",fmtI(tc),"#34D399"],["Spent",fmtI(ts),"#FCA5A5"],["Members",members.length,"#A5B4FC"]].map(([l,v,c])=>(<div key={l}><div style={{fontSize:10,color:"rgba(255,255,255,0.38)",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>{l}</div><div style={{color:c,fontSize:16,fontWeight:800,marginTop:4}}>{v}</div></div>))}</div>
+            <div style={{fontSize:10,color:"rgba(99,102,241,0.7)",fontWeight:700,letterSpacing:2.5,textTransform:"uppercase",marginBottom:8}}>Total Balance</div>
+            <div style={{fontSize:46,fontWeight:900,color:"#FFFFFF",letterSpacing:-2,lineHeight:1}}>{fmtI(totalBal)}</div>
+            <div style={{height:2,background:"linear-gradient(90deg,#6366F1,#10B981,transparent)",borderRadius:99,marginTop:16}}/>
           </div>
+        </div>
+        {/* 2×2 Metric Grid */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          {[
+            {label:"Collected",val:fmtI(tc),icon:"💰",color:"#10B981",bg:dark?"#052E1C":"#ECFDF5",border:"rgba(16,185,129,0.18)"},
+            {label:"Total Spent",val:fmtI(ts),icon:"💸",color:"#F43F5E",bg:dark?"#2D0814":"#FFF1F3",border:"rgba(244,63,94,0.18)"},
+            {label:"Members",val:members.length,icon:"👥",color:"#8B5CF6",bg:dark?"#1A0F40":"#F5F3FF",border:"rgba(139,92,246,0.18)"},
+            {label:"Pending Votes",val:allPendingVotes.length||"—",icon:"🗳️",color:"#F59E0B",bg:dark?"#2D1A00":"#FFFBEB",border:"rgba(245,158,11,0.18)"},
+          ].map(({label,val,icon,color,bg,border})=>(
+            <div key={label} style={{background:bg,borderRadius:16,padding:"16px 14px",border:`1px solid ${border}`,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontSize:10,color,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",lineHeight:1.3}}>{label}</div>
+                <span style={{fontSize:17}}>{icon}</span>
+              </div>
+              <div style={{fontSize:22,fontWeight:900,color,letterSpacing:-0.5,lineHeight:1}}>{val}</div>
+            </div>
+          ))}
         </div>
         {/* My Dues Card — personal payment status */}
         {(()=>{
@@ -1254,7 +1278,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         {/* Month dues */}
         <div style={K(C)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:800,color:C.text,fontSize:15}}>📅 {today.toLocaleString("default",{month:"long",year:"numeric"})}</div><span style={Pl(C,paidIds.length===members.length?"green":"blue")}>{paidIds.length}/{members.length} paid</span></div>
-          <div style={{background:C.primaryMid,borderRadius:99,height:10,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${members.length?(paidIds.length/members.length)*100:0}%`,background:`linear-gradient(90deg,${C.primary},#7B9EFF)`,borderRadius:99,transition:"width 1s"}}/></div>
+          <div style={{background:C.border,borderRadius:99,height:8,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${members.length?(paidIds.length/members.length)*100:0}%`,background:"linear-gradient(90deg,#10B981,#6366F1,#8B5CF6)",borderRadius:99,transition:"width 1s",boxShadow:"0 0 8px rgba(99,102,241,0.4)"}}/></div>
           {unpaid.length>0?<div><div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:6}}>Pending:</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{unpaid.map(m=><span key={m.uid} style={Pl(C,"red")}>{m.avatar} {m.name}</span>)}</div></div>:<div style={{display:"flex",alignItems:"center",gap:8,color:C.greenDark,fontSize:13,fontWeight:700}}><span>🎉</span> All paid this month!</div>}
         </div>
         {/* UPI */}
@@ -1702,8 +1726,8 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         {switcherOpen&&<GroupSwitcher allGroups={allGroups} currentGroupId={group.id} onSwitch={onSwitchGroup} onGoToGroups={onBack} C={C} onClose={()=>setSwitcherOpen(false)}/>}
       </div>
       {tabContent()}
-      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -4px 28px rgba(16,185,129,0.1)"}}>
-        {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s"}}><span style={{fontSize:21}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>))}
+      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -2px 24px rgba(0,0,0,0.07)"}}>
+        {tabs.map(t=>{const active=tab===t.id;return(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:active?`${t.color}10`:"none",color:active?t.color:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:active?`2.5px solid ${t.color}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:active?800:600,transition:"all 0.18s"}}><span style={{fontSize:active?22:20,transition:"font-size 0.18s"}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>);})}
       </nav>
       {renderModal()}
       {votePopupOpen&&renderVotePopup()}
