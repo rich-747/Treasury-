@@ -979,6 +979,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const [mAnnText,setMAnnText]=useState("");
   const [mAnnPinned,setMAnnPinned]=useState(false);
   const [mAnnView,setMAnnView]=useState("compose");
+  const [annWAErr,setAnnWAErr]=useState(false);
   const [mExpF,setMExpF]=useState({title:"",amount:"",category:"Cricket",description:""});
   const [mExpStep,setMExpStep]=useState(1);
   const [mEmgF,setMEmgF]=useState({amount:"",reason:"",details:""});
@@ -1458,7 +1459,6 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>
               <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                <button onClick={()=>shareAnnounceWA(a)} title="Share on WhatsApp" style={{background:"#E8FFF1",color:"#128C7E",border:"1.5px solid #25D36644",borderRadius:8,padding:"4px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🟢</button>
                 {(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:C.redLight,color:C.red,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}
               </div>
             </div>
@@ -1471,7 +1471,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
             <button onClick={()=>setMAnnPinned(!mAnnPinned)} style={{display:"flex",alignItems:"center",gap:8,background:mAnnPinned?C.yellowLight:C.bg,border:`1.5px solid ${mAnnPinned?C.yellow:C.border}`,borderRadius:12,padding:"8px 14px",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:700,color:mAnnPinned?"#B37A00":C.textSub}}>📌 {mAnnPinned?"Pinned":"Pin to top"}</button>
           </div>
-          <div style={{display:"flex",gap:10}}><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mAnnText.trim())postAnnounce(mAnnText,mAnnPinned);}}>📢 Post Now</button><button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button></div>
+          {annWAErr&&<div style={{color:C.red,fontSize:12,fontWeight:700,marginBottom:8}}>⚠️ Type the announcement before sharing on WhatsApp</div>}
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mAnnText.trim())postAnnounce(mAnnText,mAnnPinned);}}>📢 Post Now</button>
+            <button title="Share on WhatsApp" onClick={()=>{if(!mAnnText.trim()){setAnnWAErr(true);setTimeout(()=>setAnnWAErr(false),3000);}else{setAnnWAErr(false);openWA(`📢 *${gData.name} — Announcement*\n\n${mAnnText}\n\n— ${userProfile.avatar} ${userProfile.name}`);}}} style={{width:48,height:48,borderRadius:14,background:"#E8FFF1",border:"1.5px solid #25D36644",cursor:"pointer",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg viewBox="0 0 32 32" width="22" height="22" fill="#25D366"><path d="M16 2C8.28 2 2 8.28 2 16c0 2.46.66 4.77 1.8 6.77L2 30l7.44-1.76A13.94 13.94 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm0 25.5a11.44 11.44 0 01-5.82-1.58l-.42-.25-4.42 1.04 1.07-4.3-.27-.44A11.5 11.5 0 1116 27.5zm6.3-8.57c-.34-.17-2.02-.99-2.34-1.1-.31-.12-.54-.17-.77.17-.23.34-.88 1.1-1.08 1.33-.2.23-.4.26-.74.09-.34-.17-1.44-.53-2.74-1.69-1.01-.9-1.7-2.01-1.9-2.35-.2-.34-.02-.52.15-.69.15-.15.34-.4.51-.6.17-.2.23-.34.34-.57.12-.23.06-.43-.03-.6-.09-.17-.77-1.86-1.06-2.55-.28-.67-.56-.58-.77-.59l-.65-.01c-.23 0-.6.08-.91.43-.31.34-1.19 1.16-1.19 2.84s1.22 3.3 1.39 3.53c.17.23 2.4 3.66 5.82 5.13.81.35 1.45.56 1.94.72.82.26 1.56.22 2.15.13.66-.1 2.02-.82 2.31-1.62.28-.8.28-1.48.2-1.62-.09-.14-.31-.23-.65-.4z"/></svg>
+            </button>
+            <button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button>
+          </div>
         </>}
       </Sheet>);
     }
@@ -1586,7 +1593,6 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>
             <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <button onClick={()=>shareAnnounceWA(a)} title="Share on WhatsApp" style={{background:"none",border:"none",color:"#25D366",cursor:"pointer",fontSize:15,lineHeight:1}}>🟢</button>
               <button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700}}>✕</button>
             </div>
           </div>
