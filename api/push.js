@@ -2,7 +2,7 @@
 // Env var required: GOOGLE_SERVICE_ACCOUNT  (full JSON content of service account key)
 // Project ID:       treasury-777
 
-import { createSign } from "crypto";
+import { createSign } from "node:crypto";
 
 const PROJECT_ID = "treasury-777";
 

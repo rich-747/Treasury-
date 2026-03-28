@@ -13,7 +13,7 @@ import {
 import { getToken, onMessage } from "firebase/messaging";
 
 // ── FCM VAPID key — get from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
-const VAPID_KEY = "REPLACE_WITH_YOUR_VAPID_KEY";
+const VAPID_KEY = "BEMk7hxtLprk2k1clJ3qkq99qcpHbkITgH75t79VZ7ePfmFxpfMqqaxaKQhqFSIXNLJEVTd8uFVSOV3IXxZOKKY";
 
 // ── Constants ─────────────────────────────────────────────────────
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -1056,8 +1056,9 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const upGroup=async data=>{try{await updateDoc(doc(db,"groups",group.id),data);}catch(e){showT("Save failed: "+e.message,"error");}};
 
   // ── FCM Push Notifications ──────────────────────────────────────
-  // Register device token and listen for foreground messages
+  // Register device token and store it inside the group member entry (no cross-user reads needed)
   useEffect(()=>{
+    if(!gData)return;
     let unsubMsg=()=>{};
     (async()=>{
       try{
@@ -1067,8 +1068,12 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         if(permission!=="granted")return;
         const tok=await getToken(messaging,{vapidKey:VAPID_KEY});
         if(tok){
-          // Store token on user doc so other members' devices can push to us
-          await setDoc(doc(db,"users",userProfile.uid),{fcmToken:tok,fcmUpdatedAt:new Date().toISOString()},{merge:true});
+          // Store token inside the group's member array entry so any member can read it
+          const myEntry=((gData.members)||[]).find(m=>m.uid===userProfile.uid);
+          if(myEntry&&myEntry.fcmToken!==tok){
+            const updatedMembers=(gData.members||[]).map(m=>m.uid===userProfile.uid?{...m,fcmToken:tok}:m);
+            await updateDoc(doc(db,"groups",group.id),{members:updatedMembers});
+          }
         }
         // Show toast for foreground messages
         unsubMsg=onMessage(messaging,payload=>{
@@ -1081,19 +1086,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       }
     })();
     return()=>unsubMsg();
-  },[userProfile.uid]);
+  },[userProfile.uid,gData?.id]);
 
-  // Send push notification to all other group members
+  // Send push notification to all other group members — tokens come from gData.members (no extra reads)
   const sendPush=async(title,body)=>{
     try{
-      const tokens=[];
-      const others=((gData||{}).members||[]).filter(m=>m.uid!==userProfile.uid);
-      await Promise.all(others.map(async m=>{
-        try{
-          const snap=await getDoc(doc(db,"users",m.uid));
-          if(snap.exists()&&snap.data().fcmToken)tokens.push(snap.data().fcmToken);
-        }catch(e){ /* skip */ }
-      }));
+      const tokens=(gData?.members||[])
+        .filter(m=>m.uid!==userProfile.uid&&m.fcmToken)
+        .map(m=>m.fcmToken);
       if(!tokens.length)return;
       await fetch("/api/push",{
         method:"POST",
