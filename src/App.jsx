@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { auth, db } from "./firebase";
+import { auth, db, messagingPromise } from "./firebase";
 import {
   GoogleAuthProvider, signInWithPopup, signInWithPhoneNumber,
   RecaptchaVerifier, createUserWithEmailAndPassword,
@@ -10,6 +10,10 @@ import {
   doc, setDoc, getDoc, collection, addDoc, onSnapshot,
   updateDoc, arrayUnion, serverTimestamp, query, where, getDocs, deleteDoc
 } from "firebase/firestore";
+import { getToken, onMessage } from "firebase/messaging";
+
+// ── FCM VAPID key — get from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+const VAPID_KEY = "REPLACE_WITH_YOUR_VAPID_KEY";
 
 // ── Constants ─────────────────────────────────────────────────────
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -1051,6 +1055,56 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const showT=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3200);};
   const upGroup=async data=>{try{await updateDoc(doc(db,"groups",group.id),data);}catch(e){showT("Save failed: "+e.message,"error");}};
 
+  // ── FCM Push Notifications ──────────────────────────────────────
+  // Register device token and listen for foreground messages
+  useEffect(()=>{
+    let unsubMsg=()=>{};
+    (async()=>{
+      try{
+        const messaging=await messagingPromise;
+        if(!messaging)return;
+        const permission=await Notification.requestPermission();
+        if(permission!=="granted")return;
+        const tok=await getToken(messaging,{vapidKey:VAPID_KEY});
+        if(tok){
+          // Store token on user doc so other members' devices can push to us
+          await setDoc(doc(db,"users",userProfile.uid),{fcmToken:tok,fcmUpdatedAt:new Date().toISOString()},{merge:true});
+        }
+        // Show toast for foreground messages
+        unsubMsg=onMessage(messaging,payload=>{
+          const t=payload.notification?.title||"Treasury";
+          const b=payload.notification?.body||"";
+          showT(`🔔 ${t}${b?": "+b:""}`,"info");
+        });
+      }catch(e){
+        console.warn("FCM setup failed:",e.message);
+      }
+    })();
+    return()=>unsubMsg();
+  },[userProfile.uid]);
+
+  // Send push notification to all other group members
+  const sendPush=async(title,body)=>{
+    try{
+      const tokens=[];
+      const others=((gData||{}).members||[]).filter(m=>m.uid!==userProfile.uid);
+      await Promise.all(others.map(async m=>{
+        try{
+          const snap=await getDoc(doc(db,"users",m.uid));
+          if(snap.exists()&&snap.data().fcmToken)tokens.push(snap.data().fcmToken);
+        }catch(e){ /* skip */ }
+      }));
+      if(!tokens.length)return;
+      await fetch("/api/push",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({tokens,title,body}),
+      });
+    }catch(e){
+      console.warn("Push send failed:",e.message);
+    }
+  };
+
   // Auto-delete announcements older than 30 days
   useEffect(()=>{
     if(!gData?.announcements?.length)return;
@@ -1091,7 +1145,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const unreadBell=pendingCount+(gData.announcements||[]).length+(gData.notifications||[]).filter(n=>n.toUid===userProfile.uid&&!n.read).length;
 
   // ── Actions ────────────────────────────────────────────────────
-  const markPaid=async mid=>{if(paidIds.includes(mid)){showT("Already paid!","info");return;}await upGroup({contributions:[...(gData.contributions||[]),{id:gData.nextId,memberId:mid,month:thisMonth,amount:gData.monthlyAmount||200,date:new Date().toISOString(),markedBy:userProfile.uid}],nextId:(gData.nextId||100)+1});showT("Payment marked ✓");};
+  const markPaid=async mid=>{
+    if(paidIds.includes(mid)){showT("Already paid!","info");return;}
+    const paidMember=members.find(m=>m.uid===mid);
+    await upGroup({contributions:[...(gData.contributions||[]),{id:gData.nextId,memberId:mid,month:thisMonth,amount:gData.monthlyAmount||200,date:new Date().toISOString(),markedBy:userProfile.uid}],nextId:(gData.nextId||100)+1});
+    showT("Payment marked ✓");
+    sendPush(`💰 Payment Received — ${gData.name}`,`${paidMember?.name||"A member"} paid ₹${gData.monthlyAmount||200} for ${thisMonth}`);
+  };
   const notifyMember=async m=>{
     // Save in-app notification to Firestore
     await upGroup({notifications:[...(gData.notifications||[]),{id:(gData.nextId||100)+1,type:"payment_reminder",toUid:m.uid,fromName:userProfile.name,message:`${userProfile.avatar} ${userProfile.name} reminded you to pay ₹${gData.monthlyAmount||200} for ${new Date().toLocaleString("default",{month:"long"})}!`,createdAt:new Date().toISOString(),read:false}],nextId:(gData.nextId||100)+2});
@@ -1109,11 +1169,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     showT("Event created! 🎉");closeModal();
     const et=EVENT_TYPES.find(t=>t.v===f.type);
     openWA(`${et?.icon||"🗓️"} *New Event — ${gData.name}*\n\n📌 ${f.title}\n📅 ${f.date}${f.time?" at "+f.time:""}\n${f.location?"📍 "+f.location+"\n":""}${f.description?"\n"+f.description+"\n":""}\nRSVP on the Treasury app! 🏏`);
+    sendPush(`${et?.icon||"🗓️"} New Event — ${gData.name}`,`${f.title} on ${f.date}${f.location?" at "+f.location:""}`);
   };
   const rsvp=async(eid,status)=>{const events=(gData.events||[]).map(e=>{if(e.id!==eid)return e;const r={yes:[...e.rsvp.yes],no:[...e.rsvp.no],maybe:[...e.rsvp.maybe]};["yes","no","maybe"].forEach(k=>{r[k]=r[k].filter(x=>x!==userProfile.uid)});r[status].push(userProfile.uid);return{...e,rsvp:r}});await upGroup({events});showT("RSVP updated!");};
   const postAnnounce=async(text,pinned=false)=>{
     await upGroup({announcements:[{id:gData.nextId,text,pinned,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,createdAt:new Date().toISOString()},...(gData.announcements||[])],nextId:(gData.nextId||100)+1});
     showT("Posted! 📢");closeModal();
+    sendPush(`📢 Announcement — ${gData.name}`,text.length>80?text.slice(0,77)+"...":text);
   };
   const shareAnnounceWA=a=>openWA(`📢 *${gData.name} — Announcement*\n\n${a.text}\n\n— ${a.memberAvatar} ${a.memberName}`);
   const deleteAnnounce=async id=>{await upGroup({announcements:(gData.announcements||[]).filter(a=>a.id!==id)});showT("Deleted");};
@@ -1133,9 +1195,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     closeModal();
     if(type==="emergency"){
       openWA(`🆘 *URGENT — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* has raised an emergency fund request!\n\n💰 Amount: *${fmtI(payload.amount)}*\n📝 Reason: ${payload.reason}\n\nOpen the Treasury app to vote! ⚡`);
+      sendPush(`🆘 Emergency Request — ${gData.name}`,`${userProfile.name} needs ${fmtI(payload.amount)} urgently! Open app to vote.`);
     }
     if(type==="expense"){
       openWA(`🗳️ *New Expense Vote — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* requested an expense:\n\n💸 *${payload.title}* — ${fmtI(payload.amount)}\n📂 ${payload.category||"Other"}\n\nOpen the Treasury app to approve or reject! 👍👎`);
+      sendPush(`🗳️ Vote Required — ${gData.name}`,`${userProfile.name} requested ${payload.title} for ${fmtI(payload.amount)}`);
+    }
+    if(type==="monthlyAmount"){
+      sendPush(`🗳️ Vote Required — ${gData.name}`,`${userProfile.name} proposed changing monthly amount to ${fmtI(payload.newAmount)}`);
     }
   };
 
@@ -1166,6 +1233,19 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       const typeLabels={expense:`✅ *Expense Approved — ${gData.name}*\n\n💸 *${item.title}* — ${fmtI(item.amount)}\n📂 ${item.category||"Other"}\n\nMoney released from treasury! 🏦`,emergency:`✅ *Emergency Approved — ${gData.name}*\n\n🆘 ${item.memberAvatar||""} *${item.memberName}*'s emergency request approved!\n💰 ${fmtI(item.amount)} released\n📝 ${item.reason}\n\nStay safe! 🙏`,goalRelease:`✅ *Goal Funded — ${gData.name}*\n\n🎯 *${item.goalTitle}*\n💰 ${fmtI(item.amount)} added from treasury!\n\nOne step closer to the goal! 🚀`};
       const msg=typeLabels[voteType];
       if(msg)openWA(msg);
+      // Push notification on approval
+      const pushLabels={
+        expense:`✅ ${item.title} approved — ${fmtI(item.amount)} released`,
+        emergency:`✅ Emergency approved — ${fmtI(item.amount)} to ${item.memberName}`,
+        goalRelease:`✅ ${item.goalTitle} goal funded — ${fmtI(item.amount)}`,
+        admin:`👑 ${item.nomineeName} is now ${item.isRemoval?"no longer":"an"} admin`,
+        monthlyAmount:`📅 Monthly amount changed to ${fmtI(item.newAmount)}`,
+      };
+      const pushMsg=pushLabels[voteType];
+      if(pushMsg)sendPush(`${gData.name}`,pushMsg);
+    } else if(!approve){
+      // Notify on rejection too (only to the requester's device - still sent to all for simplicity)
+      sendPush(`${gData.name}`,`${userProfile.name} voted on a request`);
     }
   };
 
