@@ -22,9 +22,9 @@ const EMOJIS = [
 ];
 const GROUP_EMOJIS = ["💰","🏏","🏠","✈️","🎉","💼","🎓","🏋️","🍕","🎮","🌍","❤️","⚡","🔥","🌟"];
 const EVENT_TYPES = [
-  {v:"cricket",l:"🏏 Cricket",icon:"🏏",color:"#4361EE"},
+  {v:"cricket",l:"🏏 Cricket",icon:"🏏",color:"#10B981"},
   {v:"party",l:"🎉 Party / Celebration",icon:"🎉",color:"#F72585"},
-  {v:"trip",l:"🚗 Trip / Outing",icon:"🚗",color:"#06D6A0"},
+  {v:"trip",l:"🚗 Trip / Outing",icon:"🚗",color:"#10B981"},
   {v:"hangout",l:"☕ Hangout",icon:"☕",color:"#FFB703"},
   {v:"movie",l:"🎬 Movie Night",icon:"🎬",color:"#7B2FBE"},
   {v:"food",l:"🍕 Food & Drinks",icon:"🍕",color:"#EF233C"},
@@ -53,38 +53,39 @@ const isEventPast = dateStr => { if(!dateStr) return false; const d=new Date(dat
 
 // ── Theme ─────────────────────────────────────────────────────────
 const getC = dark => ({
-  bg:           dark?"#0F172A":"#F4F7FF",
-  white:        dark?"#1E293B":"#FFFFFF",
-  border:       dark?"#334155":"#E4EBFF",
-  primary:      "#4361EE",
-  primaryDark:  "#2D45CC",
-  primaryLight: dark?"#1E3A5F":"#EEF1FF",
-  primaryMid:   dark?"#1E3A5F":"#D8DEFF",
-  green:        "#06D6A0",
-  greenLight:   dark?"#064E3B":"#EDFAF6",
-  greenDark:    "#05B384",
-  red:          "#EF233C",
-  redLight:     dark?"#4C0519":"#FEF0F2",
-  yellow:       "#FFB703",
-  yellowLight:  dark?"#451A03":"#FFF8E6",
-  purple:       "#7B2FBE",
-  purpleLight:  dark?"#2E1065":"#F3EAFF",
-  text:         dark?"#F1F5F9":"#0D1B4B",
-  textSub:      dark?"#94A3B8":"#5A6A8A",
-  muted:        dark?"#64748B":"#A0AECB",
+  bg:           dark?"#080F1A":"#F8FAFC",
+  white:        dark?"#111827":"#FFFFFF",
+  border:       dark?"#1F2D3D":"#E2E8F0",
+  primary:      "#10B981",
+  primaryDark:  "#059669",
+  primaryLight: dark?"#052E1C":"#ECFDF5",
+  primaryMid:   dark?"#052E1C":"#D1FAE5",
+  green:        "#10B981",
+  greenLight:   dark?"#052E1C":"#ECFDF5",
+  greenDark:    "#059669",
+  red:          "#EF4444",
+  redLight:     dark?"#2D0A0A":"#FEF2F2",
+  yellow:       "#F59E0B",
+  yellowLight:  dark?"#2D1A00":"#FFFBEB",
+  purple:       "#8B5CF6",
+  purpleLight:  dark?"#1E1040":"#F5F3FF",
+  text:         dark?"#F1F5F9":"#0F172A",
+  textSub:      dark?"#94A3B8":"#475569",
+  muted:        dark?"#64748B":"#94A3B8",
+  navy:         "#0F172A",
 });
 
 const GS = (C,dark) => `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  body{background:${C.bg};font-family:'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+  body{background:${C.bg};font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
   *{-webkit-touch-callout:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
   input,textarea,select{-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;}
   img,svg{pointer-events:none;-webkit-user-drag:none;user-drag:none;}
   html{touch-action:pan-y;}
   ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-thumb{background:${C.primaryMid};border-radius:4px;}
   select option{background:${C.white};color:${C.text};}
-  input,select,textarea{font-family:'Plus Jakarta Sans',sans-serif;color:${C.text};}
+  input,select,textarea{font-family:'Inter',sans-serif;color:${C.text};}
   input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
   input[type=number]{-moz-appearance:textfield;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
@@ -95,7 +96,7 @@ const GS = (C,dark) => `
   @keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
   @keyframes dropDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
-  @keyframes otpBlink{0%,100%{border-color:#4361EE;box-shadow:0 0 0 3px rgba(67,97,238,0.15);}50%{border-color:#7B9EFF;box-shadow:0 0 0 3px rgba(67,97,238,0.08);}}
+  @keyframes otpBlink{0%,100%{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,0.15);}50%{border-color:#7B9EFF;box-shadow:0 0 0 3px rgba(16,185,129,0.08);}}
   .fade-up{animation:fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;}
   .fade-in{animation:fadeIn 0.25s ease both;}
   .drop-down{animation:dropDown 0.22s cubic-bezier(0.22,1,0.36,1) both;}
@@ -106,27 +107,28 @@ const GS = (C,dark) => `
   .pulse{animation:pulse 1.5s ease-in-out infinite;}
   .lift{transition:transform 0.18s,box-shadow 0.18s;}
   .lift:hover{transform:translateY(-2px);}
-  .btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(67,97,238,0.4)!important;}
-  .btn-g:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(6,214,160,0.4)!important;}
-  .btn-r:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(239,35,60,0.4)!important;}
-  .btn-y:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,183,3,0.4)!important;}
+  .btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,0.4)!important;}
+  .btn-g:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,0.4)!important;}
+  .btn-r:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(239,68,68,0.4)!important;}
+  .btn-y:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(245,158,11,0.4)!important;}
   .nav-btn:hover{background:${C.primaryLight}!important;}
   .switcher-btn:hover{background:${C.primaryLight}!important;border-color:${C.primary}!important;}
-  .otp-input:focus{outline:none!important;border-color:#4361EE!important;box-shadow:0 0 0 3px rgba(67,97,238,0.18)!important;}
-  .phone-input:focus{outline:none!important;border-color:#4361EE!important;box-shadow:0 0 0 3px rgba(67,97,238,0.15)!important;}
+  .otp-input:focus{outline:none!important;border-color:#10B981!important;box-shadow:0 0 0 3px rgba(16,185,129,0.18)!important;}
+  .phone-input:focus{outline:none!important;border-color:#10B981!important;box-shadow:0 0 0 3px rgba(16,185,129,0.15)!important;}
+  @keyframes otpBlink{0%,100%{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,0.15);}50%{border-color:#34D399;box-shadow:0 0 0 3px rgba(16,185,129,0.08);}}
 `;
 
 const I  = C => ({width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:14,padding:"13px 16px",color:C.text,fontSize:14,fontWeight:500,marginBottom:12,outline:"none",transition:"border-color 0.18s"});
 const L  = C => ({fontSize:11,color:C.textSub,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6,display:"block"});
-const K  = (C,x={}) => ({background:C.white,borderRadius:20,padding:"18px",marginBottom:14,border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(67,97,238,0.06)",...x});
+const K  = (C,x={}) => ({background:C.white,borderRadius:16,padding:"18px",marginBottom:14,border:`1px solid ${C.border}`,boxShadow:"0 1px 8px rgba(0,0,0,0.05),0 4px 20px rgba(0,0,0,0.04)",...x});
 const Pl = (C,v) => { const m={blue:[C.primaryLight,C.primary],green:[C.greenLight,C.greenDark],red:[C.redLight,C.red],yellow:[C.yellowLight,"#B37A00"],purple:[C.purpleLight,C.purple]}; const [bg,color]=m[v]||m.blue; return{display:"inline-flex",alignItems:"center",padding:"4px 12px",borderRadius:99,fontSize:12,fontWeight:700,background:bg,color}; };
 const Bt = (C,v="p",x={}) => ({
   display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"12px 20px",borderRadius:14,
   border:v==="gh"?`1.5px solid ${C.border}`:"none",
   background:v==="p"?C.primary:v==="g"?C.green:v==="r"?C.red:v==="y"?"#FFB703":v==="w"?C.white:v==="pu"?C.purple:"transparent",
   color:v==="gh"?C.textSub:v==="w"?C.primary:"#fff",
-  fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",
-  boxShadow:v==="p"?"0 4px 16px rgba(67,97,238,0.3)":v==="g"?"0 4px 16px rgba(6,214,160,0.3)":v==="r"?"0 4px 16px rgba(239,35,60,0.3)":v==="y"?"0 4px 16px rgba(255,183,3,0.3)":v==="pu"?"0 4px 16px rgba(123,47,190,0.3)":"none",
+  fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",
+  boxShadow:v==="p"?"0 4px 16px rgba(16,185,129,0.3)":v==="g"?"0 4px 16px rgba(16,185,129,0.3)":v==="r"?"0 4px 16px rgba(239,68,68,0.25)":v==="y"?"0 4px 16px rgba(245,158,11,0.3)":v==="pu"?"0 4px 16px rgba(139,92,246,0.3)":"none",
   transition:"transform 0.18s,box-shadow 0.18s",...x,
 });
 
@@ -201,16 +203,16 @@ function OTPInput({value, onChange, onComplete, error}){
           style={{
             width:46, height:56,
             borderRadius:14,
-            border:`2px solid ${error?"#EF233C":d?"#4361EE":"#E4EBFF"}`,
-            background: d ? "#EEF1FF" : "#F4F7FF",
+            border:`2px solid ${error?"#EF233C":d?"#10B981":"#E4EBFF"}`,
+            background: d ? "#ECFDF5" : "#F8FAFC",
             textAlign:"center",
             fontSize:24,
             fontWeight:900,
-            color:"#0D1B4B",
-            fontFamily:"'Plus Jakarta Sans',sans-serif",
+            color:"#0F172A",
+            fontFamily:"'Inter',sans-serif",
             cursor:"text",
             transition:"border-color 0.15s, background 0.15s",
-            boxShadow: d ? "0 0 0 3px rgba(67,97,238,0.12)" : "none",
+            boxShadow: d ? "0 0 0 3px rgba(16,185,129,0.12)" : "none",
           }}
         />
       ))}
@@ -229,7 +231,7 @@ function PhoneInput({phone, onChange, countryCode, onCountryChange}){
         border:"1.5px solid #E4EBFF",
         borderRadius:14,
         overflow:"hidden",
-        background:"#F4F7FF",
+        background:"#F8FAFC",
         transition:"border-color 0.18s",
       }}>
         {/* Country code button */}
@@ -240,8 +242,8 @@ function PhoneInput({phone, onChange, countryCode, onCountryChange}){
             display:"flex",alignItems:"center",gap:6,
             padding:"13px 14px",
             background:"none",border:"none",borderRight:"1.5px solid #E4EBFF",
-            cursor:"pointer",flexShrink:0,fontFamily:"'Plus Jakarta Sans',sans-serif",
-            fontWeight:700,fontSize:14,color:"#0D1B4B",
+            cursor:"pointer",flexShrink:0,fontFamily:"'Inter',sans-serif",
+            fontWeight:700,fontSize:14,color:"#0F172A",
           }}
         >
           <span style={{fontSize:20}}>{selected.flag}</span>
@@ -262,7 +264,7 @@ function PhoneInput({phone, onChange, countryCode, onCountryChange}){
             flex:1,padding:"13px 16px",
             background:"none",border:"none",
             fontSize:16,fontWeight:700,
-            color:"#0D1B4B",fontFamily:"'Plus Jakarta Sans',sans-serif",
+            color:"#0F172A",fontFamily:"'Inter',sans-serif",
             outline:"none",
             letterSpacing:1,
           }}
@@ -274,7 +276,7 @@ function PhoneInput({phone, onChange, countryCode, onCountryChange}){
           position:"absolute",top:"calc(100% + 6px)",left:0,right:0,zIndex:100,
           background:"#fff",borderRadius:16,
           border:"1.5px solid #E4EBFF",
-          boxShadow:"0 12px 40px rgba(67,97,238,0.18)",
+          boxShadow:"0 12px 40px rgba(16,185,129,0.18)",
           overflow:"hidden",maxHeight:260,overflowY:"auto",
         }}>
           {COUNTRY_CODES.map(c=>(
@@ -285,16 +287,16 @@ function PhoneInput({phone, onChange, countryCode, onCountryChange}){
               style={{
                 display:"flex",alignItems:"center",gap:12,
                 width:"100%",padding:"12px 16px",
-                background:c.code===countryCode?"#EEF1FF":"none",
-                border:"none",borderBottom:"1px solid #F4F7FF",
-                cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif",
+                background:c.code===countryCode?"#ECFDF5":"none",
+                border:"none",borderBottom:"1px solid #F8FAFC",
+                cursor:"pointer",fontFamily:"'Inter',sans-serif",
                 textAlign:"left",
               }}
             >
               <span style={{fontSize:22}}>{c.flag}</span>
-              <span style={{flex:1,fontSize:14,fontWeight:700,color:"#0D1B4B"}}>{c.name}</span>
+              <span style={{flex:1,fontSize:14,fontWeight:700,color:"#0F172A"}}>{c.name}</span>
               <span style={{fontSize:13,fontWeight:700,color:"#5A6A8A"}}>{c.code}</span>
-              {c.code===countryCode&&<span style={{color:"#4361EE",fontSize:16}}>✓</span>}
+              {c.code===countryCode&&<span style={{color:"#10B981",fontSize:16}}>✓</span>}
             </button>
           ))}
         </div>
@@ -492,9 +494,9 @@ function AuthScreen({onAuth}){
   return(
     <div style={{
       minHeight:"100vh",
-      background:"linear-gradient(160deg,#0d1b6e 0%,#2D45CC 40%,#4361EE 70%,#667eea 100%)",
+      background:"linear-gradient(160deg,#020B14 0%,#0F172A 40%,#134E4A 80%,#065F46 100%)",
       display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-      padding:"20px 16px",fontFamily:"'Plus Jakarta Sans',sans-serif",
+      padding:"20px 16px",fontFamily:"'Inter',sans-serif",
       position:"relative",overflow:"hidden",
     }}>
       <style>{GS(C,false)}</style>
@@ -530,7 +532,7 @@ function AuthScreen({onAuth}){
         {authTab==="phone" && phoneStep===1 && (
           <>
             <div style={{textAlign:"center",marginBottom:24}}>
-              <div style={{fontSize:22,fontWeight:900,color:"#0D1B4B",letterSpacing:-0.5}}>Login with Phone</div>
+              <div style={{fontSize:22,fontWeight:900,color:"#0F172A",letterSpacing:-0.5}}>Login with Phone</div>
               <div style={{fontSize:13,color:"#5A6A8A",marginTop:5}}>We'll send you a 6-digit OTP</div>
             </div>
 
@@ -541,19 +543,19 @@ function AuthScreen({onAuth}){
                 </div>
                 {/* Show setup guide if it's a 400 / config issue */}
                 {(error.includes("400")||error.includes("not enabled")||error.includes("not fully set up")||error.includes("below"))&&(
-                  <div className="fade-in" style={{background:"#F4F7FF",border:"1px solid #4361EE33",borderRadius:14,padding:"16px",marginTop:10}}>
-                    <div style={{fontWeight:900,color:"#4361EE",fontSize:13,marginBottom:12}}>🔧 Fix it in Firebase Console — 3 steps:</div>
+                  <div className="fade-in" style={{background:"#F8FAFC",border:"1px solid #10B98133",borderRadius:14,padding:"16px",marginTop:10}}>
+                    <div style={{fontWeight:900,color:"#10B981",fontSize:13,marginBottom:12}}>🔧 Fix it in Firebase Console — 3 steps:</div>
                     {[
                       ["1","Enable Phone Auth","console.firebase.google.com → Authentication → Sign-in method → Phone → Enable → Save"],
                       ["2","Allow India region","Authentication → Settings → SMS region policy → Allow → Add India (+91) → Save"],
                       ["3","Authorised domain","Authentication → Settings → Authorised domains → Add: treasury-self.vercel.app"],
                     ].map(([n,title,desc])=>(
                       <div key={n} style={{display:"flex",gap:10,marginBottom:10}}>
-                        <div style={{width:22,height:22,borderRadius:"50%",background:"#4361EE",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,flexShrink:0,marginTop:1}}>{n}</div>
-                        <div><div style={{fontSize:12,fontWeight:800,color:"#0D1B4B"}}>{title}</div><div style={{fontSize:11,color:"#5A6A8A",marginTop:2,lineHeight:1.5}}>{desc}</div></div>
+                        <div style={{width:22,height:22,borderRadius:"50%",background:"#10B981",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,flexShrink:0,marginTop:1}}>{n}</div>
+                        <div><div style={{fontSize:12,fontWeight:800,color:"#0F172A"}}>{title}</div><div style={{fontSize:11,color:"#5A6A8A",marginTop:2,lineHeight:1.5}}>{desc}</div></div>
                       </div>
                     ))}
-                    <div style={{marginTop:4,padding:"10px 12px",background:"#EEF1FF",borderRadius:10,fontSize:11,color:"#4361EE",fontWeight:700}}>
+                    <div style={{marginTop:4,padding:"10px 12px",background:"#ECFDF5",borderRadius:10,fontSize:11,color:"#10B981",fontWeight:700}}>
                       💡 After making changes, wait ~30 seconds then refresh and try again.
                     </div>
                   </div>
@@ -589,7 +591,7 @@ function AuthScreen({onAuth}){
 
             {/* Google */}
             <button
-              style={{...Bt(C,"w",{width:"100%",border:"1.5px solid #E4EBFF",marginBottom:10}),color:"#0D1B4B",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}
+              style={{...Bt(C,"w",{width:"100%",border:"1.5px solid #E4EBFF",marginBottom:10}),color:"#0F172A",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}
               onClick={handleGoogle}
               disabled={loading}
             >
@@ -621,10 +623,10 @@ function AuthScreen({onAuth}){
 
             {/* Header */}
             <div style={{textAlign:"center",marginBottom:24}}>
-              <div style={{width:60,height:60,borderRadius:18,background:"#EEF1FF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 12px"}}>📱</div>
-              <div style={{fontSize:22,fontWeight:900,color:"#0D1B4B",letterSpacing:-0.5}}>Enter OTP</div>
+              <div style={{width:60,height:60,borderRadius:18,background:"#ECFDF5",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 12px"}}>📱</div>
+              <div style={{fontSize:22,fontWeight:900,color:"#0F172A",letterSpacing:-0.5}}>Enter OTP</div>
               <div style={{fontSize:13,color:"#5A6A8A",marginTop:5}}>
-                Sent to <strong style={{color:"#0D1B4B"}}>{countryCode} {phone}</strong>
+                Sent to <strong style={{color:"#0F172A"}}>{countryCode} {phone}</strong>
               </div>
             </div>
 
@@ -637,7 +639,7 @@ function AuthScreen({onAuth}){
 
             {/* Success */}
             {success && (
-              <div className="fade-in" style={{background:"#EDFAF6",border:"1px solid #06D6A033",borderRadius:14,padding:"11px 14px",marginBottom:16,color:"#05B384",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
+              <div className="fade-in" style={{background:"#EDFAF6",border:"1px solid #10B98133",borderRadius:14,padding:"11px 14px",marginBottom:16,color:"#059669",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:16}}>✅</span> {success}
               </div>
             )}
@@ -651,7 +653,7 @@ function AuthScreen({onAuth}){
                 error={otpError}
               />
               {otp.length===6 && !loading && !error && (
-                <div className="fade-in" style={{textAlign:"center",marginTop:8,fontSize:12,color:"#05B384",fontWeight:700}}>
+                <div className="fade-in" style={{textAlign:"center",marginTop:8,fontSize:12,color:"#059669",fontWeight:700}}>
                   ✓ OTP complete — tap Verify below
                 </div>
               )}
@@ -674,13 +676,13 @@ function AuthScreen({onAuth}){
             <div style={{textAlign:"center",marginTop:18}}>
               {resendTimer > 0 ? (
                 <div style={{fontSize:13,color:"#A0AECB",fontWeight:600}}>
-                  Resend OTP in <strong style={{color:"#4361EE"}}>{resendTimer}s</strong>
+                  Resend OTP in <strong style={{color:"#10B981"}}>{resendTimer}s</strong>
                 </div>
               ) : (
                 <button
                   onClick={()=>{setError("");setSuccess("");sendOTP(true);}}
                   disabled={loading}
-                  style={{background:"none",border:"none",cursor:"pointer",color:"#4361EE",fontSize:13,fontWeight:800,fontFamily:"inherit",textDecoration:"underline",opacity:loading?0.5:1}}
+                  style={{background:"none",border:"none",cursor:"pointer",color:"#10B981",fontSize:13,fontWeight:800,fontFamily:"inherit",textDecoration:"underline",opacity:loading?0.5:1}}
                 >
                   🔁 Resend OTP
                 </button>
@@ -688,7 +690,7 @@ function AuthScreen({onAuth}){
             </div>
 
             {/* Help text */}
-            <div style={{marginTop:20,padding:"12px 14px",background:"#F4F7FF",borderRadius:14,fontSize:12,color:"#5A6A8A",lineHeight:1.6}}>
+            <div style={{marginTop:20,padding:"12px 14px",background:"#F8FAFC",borderRadius:14,fontSize:12,color:"#5A6A8A",lineHeight:1.6}}>
               <strong>Didn't get it?</strong> Check that your number is correct, SMS may take up to 60 seconds. Also check your spam/blocked messages.
             </div>
           </>
@@ -706,19 +708,19 @@ function AuthScreen({onAuth}){
             </button>
 
             <div style={{textAlign:"center",marginBottom:20}}>
-              <div style={{fontSize:22,fontWeight:900,color:"#0D1B4B",letterSpacing:-0.5}}>
+              <div style={{fontSize:22,fontWeight:900,color:"#0F172A",letterSpacing:-0.5}}>
                 {emailMode==="forgot" ? "Reset Password" : emailMode==="signup" ? "Create Account" : "Email Login"}
               </div>
             </div>
 
             {/* Tab switcher */}
             {emailMode !== "forgot" && (
-              <div style={{display:"flex",gap:4,background:"#F4F7FF",borderRadius:14,padding:4,marginBottom:20}}>
+              <div style={{display:"flex",gap:4,background:"#F8FAFC",borderRadius:14,padding:4,marginBottom:20}}>
                 {[["login","Login"],["signup","Sign Up"]].map(([m,l])=>(
                   <button key={m} onClick={()=>{setEmailMode(m);setError("");setSuccess("");}}
                     style={{flex:1,padding:"9px",borderRadius:11,border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:800,fontSize:13,
-                      background:emailMode===m?"#fff":"transparent",color:emailMode===m?"#4361EE":"#A0AECB",
-                      boxShadow:emailMode===m?"0 2px 8px rgba(67,97,238,0.12)":"none",
+                      background:emailMode===m?"#fff":"transparent",color:emailMode===m?"#10B981":"#A0AECB",
+                      boxShadow:emailMode===m?"0 2px 8px rgba(16,185,129,0.12)":"none",
                       transition:"all 0.2s",
                     }}>{l}</button>
                 ))}
@@ -726,7 +728,7 @@ function AuthScreen({onAuth}){
             )}
 
             {error&&<div className="fade-in" style={{background:"#FEF0F2",border:"1px solid #EF233C33",borderRadius:14,padding:"11px 14px",marginBottom:14,color:"#EF233C",fontSize:13,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}><span>⚠️</span>{error}</div>}
-            {success&&<div className="fade-in" style={{background:"#EDFAF6",border:"1px solid #06D6A033",borderRadius:14,padding:"11px 14px",marginBottom:14,color:"#05B384",fontSize:13,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}><span>✅</span>{success}</div>}
+            {success&&<div className="fade-in" style={{background:"#EDFAF6",border:"1px solid #10B98133",borderRadius:14,padding:"11px 14px",marginBottom:14,color:"#059669",fontSize:13,fontWeight:600,display:"flex",gap:8,alignItems:"center"}}><span>✅</span>{success}</div>}
 
             <label style={L(C)}>Email Address</label>
             <input style={I(C)} type="email" placeholder="you@email.com" value={email} onChange={e=>{setEmail(e.target.value);setError("");}}/>
@@ -753,7 +755,7 @@ function AuthScreen({onAuth}){
             )}
 
             {emailMode==="login" && (
-              <button onClick={()=>{setEmailMode("forgot");setError("");setSuccess("");}} style={{background:"none",border:"none",color:"#4361EE",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:14,fontFamily:"inherit",display:"block",textAlign:"right",width:"100%"}}>
+              <button onClick={()=>{setEmailMode("forgot");setError("");setSuccess("");}} style={{background:"none",border:"none",color:"#10B981",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:14,fontFamily:"inherit",display:"block",textAlign:"right",width:"100%"}}>
                 Forgot Password?
               </button>
             )}
@@ -798,7 +800,7 @@ function ProfileSetup({user,onComplete}){
   const [error,setError]=useState("");
   const save=async()=>{if(!name.trim()){setError("Enter your name!");return;}setLoading(true);try{const d={uid:user.uid,name:name.trim(),avatar,purpose,email:user.email||"",phone:user.phoneNumber||"",createdAt:serverTimestamp(),groups:[]};await setDoc(doc(db,"users",user.uid),d);onComplete(d);}catch(e){setError("Failed: "+e.message);}setLoading(false);};
   return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0d1b6e,#4361EE)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#020B14,#0F172A 50%,#064E3B)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Inter',sans-serif"}}>
       <style>{GS(getC(false),false)}</style>
       <div className="fade-up" style={{background:C.white,borderRadius:28,padding:"36px 28px",width:"100%",maxWidth:400,boxShadow:"0 24px 80px rgba(13,27,75,0.28)"}}>
         <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:52,marginBottom:10}}>👋</div><div style={{fontSize:22,fontWeight:900,color:C.text}}>Set Up Your Profile</div><div style={{fontSize:13,color:C.textSub,marginTop:4}}>Quick setup, just 30 seconds!</div></div>
@@ -828,7 +830,7 @@ function GroupScreen({userProfile,onSelectGroup,dark}){
   const createGroup=async()=>{if(!gName.trim()){setError("Enter group name!");return;}setLoading(true);setError("");try{const code=genCode();const ref=await addDoc(collection(db,"groups"),{name:gName.trim(),purpose:gPurpose,icon:gIcon,monthlyAmount:Number(gAmount)||200,upiId:"",inviteCode:code,createdBy:userProfile.uid,members:[{uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,isAdmin:true,joinedAt:new Date().toISOString()}],contributions:[],expenses:[],votes:[],events:[],announcements:[],savingsGoals:[],emergencyRequests:[],adminVotes:[],notifications:[],nextId:100,createdAt:serverTimestamp()});await updateDoc(doc(db,"users",userProfile.uid),{groups:arrayUnion(ref.id)});onSelectGroup({id:ref.id,name:gName.trim(),inviteCode:code,icon:gIcon});}catch(e){setError("Failed: "+e.message);}setLoading(false);};
   const joinGroup=async()=>{if(!joinCode.trim()){setError("Enter invite code!");return;}setLoading(true);setError("");try{const s=await getDocs(query(collection(db,"groups"),where("inviteCode","==",joinCode.toUpperCase().trim())));if(s.empty){setError("Invalid invite code!");setLoading(false);return;}const gDoc=s.docs[0];const gData=gDoc.data();if(gData.members?.some(m=>m.uid===userProfile.uid)){setError("Already in this group!");setLoading(false);return;}await updateDoc(doc(db,"groups",gDoc.id),{members:arrayUnion({uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,isAdmin:false,joinedAt:new Date().toISOString()})});await updateDoc(doc(db,"users",userProfile.uid),{groups:arrayUnion(gDoc.id)});onSelectGroup({id:gDoc.id,...gData});}catch(e){setError("Failed: "+e.message);}setLoading(false);};
   return(
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'Plus Jakarta Sans',sans-serif",maxWidth:440,margin:"0 auto",padding:"20px 16px 40px"}}>
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:"'Inter',sans-serif",maxWidth:440,margin:"0 auto",padding:"20px 16px 40px"}}>
       <style>{GS(C,dark)}</style>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -887,10 +889,10 @@ function ProfileTab({userProfile,onUpdateProfile,dark,onToggleDark,onBack,C}){
     {icon:"📣",label:"Send Feedback",sub:"Help us improve Treasury",action:()=>setFeedbackOpen(true)},
     {icon:"🏠",label:"Switch Group",sub:"Go back to group list",action:onBack},
   ];
-  function Sheet({title,emoji,onClose,children}){return(<div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.55)",backdropFilter:"blur(8px)",zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}><div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px 44px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -8px 60px rgba(67,97,238,0.2)"}}><div style={{position:"sticky",top:0,background:C.white,paddingTop:14,paddingBottom:16,zIndex:1}}><div style={{width:38,height:4,borderRadius:99,background:C.border,margin:"0 auto 18px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}>{emoji&&<div style={{fontSize:26,lineHeight:1}}>{emoji}</div>}<div style={{fontSize:18,fontWeight:900,color:C.text}}>{title}</div></div><button onClick={onClose} style={{background:C.primaryLight,border:"none",borderRadius:12,width:34,height:34,cursor:"pointer",color:C.primary,fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div></div>{children}</div></div>);}
+  function Sheet({title,emoji,onClose,children}){return(<div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.55)",backdropFilter:"blur(8px)",zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}><div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px 44px",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -8px 60px rgba(16,185,129,0.2)"}}><div style={{position:"sticky",top:0,background:C.white,paddingTop:14,paddingBottom:16,zIndex:1}}><div style={{width:38,height:4,borderRadius:99,background:C.border,margin:"0 auto 18px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10}}>{emoji&&<div style={{fontSize:26,lineHeight:1}}>{emoji}</div>}<div style={{fontSize:18,fontWeight:900,color:C.text}}>{title}</div></div><button onClick={onClose} style={{background:C.primaryLight,border:"none",borderRadius:12,width:34,height:34,cursor:"pointer",color:C.primary,fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div></div>{children}</div></div>);}
   return(
     <div style={{padding:"16px 16px 8px"}} className="fade-up">
-      <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,borderRadius:24,padding:"24px 20px",marginBottom:16,boxShadow:"0 8px 36px rgba(67,97,238,0.32)",position:"relative",overflow:"hidden"}}>
+      <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,borderRadius:24,padding:"24px 20px",marginBottom:16,boxShadow:"0 8px 36px rgba(16,185,129,0.32)",position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",top:-24,right:-24,width:110,height:110,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
         <div style={{display:"flex",alignItems:"center",gap:16,position:"relative"}}>
           <div style={{width:74,height:74,borderRadius:22,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40,border:"2.5px solid rgba(255,255,255,0.28)",flexShrink:0}}>{userProfile.avatar}</div>
@@ -915,7 +917,7 @@ function ProfileTab({userProfile,onUpdateProfile,dark,onToggleDark,onBack,C}){
 function Sheet({title,emoji,onClose,C,children,maxH="92vh"}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.55)",backdropFilter:"blur(8px)",zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px 44px",width:"100%",maxWidth:440,maxHeight:maxH,overflowY:"auto",boxShadow:"0 -8px 60px rgba(67,97,238,0.2)"}}>
+      <div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px 44px",width:"100%",maxWidth:440,maxHeight:maxH,overflowY:"auto",boxShadow:"0 -8px 60px rgba(16,185,129,0.2)"}}>
         <div style={{position:"sticky",top:0,background:C.white,paddingTop:14,paddingBottom:16,zIndex:1}}>
           <div style={{width:38,height:4,borderRadius:99,background:C.border,margin:"0 auto 18px"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -937,7 +939,7 @@ function Toast({toast,C}){
   const colors={success:[C.green,C.greenDark],error:[C.red,"#C0182C"],info:[C.primary,C.primaryDark]};
   const [a,b]=colors[toast.type]||colors.success;
   const icons={success:"✅",error:"❌",info:"ℹ️"};
-  return(<div className="pop-in" style={{position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",background:`linear-gradient(135deg,${a},${b})`,color:"#fff",padding:"13px 26px",borderRadius:99,fontSize:13,fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,zIndex:200,whiteSpace:"nowrap",boxShadow:"0 8px 32px rgba(0,0,0,0.22)",display:"flex",alignItems:"center",gap:8,maxWidth:"90vw"}}><span>{icons[toast.type]||"✅"}</span> {toast.msg}</div>);
+  return(<div className="pop-in" style={{position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",background:`linear-gradient(135deg,${a},${b})`,color:"#fff",padding:"13px 26px",borderRadius:99,fontSize:13,fontFamily:"'Inter',sans-serif",fontWeight:700,zIndex:200,whiteSpace:"nowrap",boxShadow:"0 8px 32px rgba(0,0,0,0.22)",display:"flex",alignItems:"center",gap:8,maxWidth:"90vw"}}><span>{icons[toast.type]||"✅"}</span> {toast.msg}</div>);
 }
 
 const SH = ({C,label,action,actionLabel}) => (
@@ -949,7 +951,7 @@ const SH = ({C,label,action,actionLabel}) => (
 
 function GroupSwitcher({allGroups,currentGroupId,onSwitch,onGoToGroups,C,onClose}){
   return(
-    <div className="drop-down" style={{position:"absolute",top:"100%",left:0,right:0,zIndex:30,background:C.white,borderBottom:`1px solid ${C.border}`,boxShadow:"0 8px 32px rgba(67,97,238,0.14)",padding:"12px 16px 16px"}}>
+    <div className="drop-down" style={{position:"absolute",top:"100%",left:0,right:0,zIndex:30,background:C.white,borderBottom:`1px solid ${C.border}`,boxShadow:"0 8px 32px rgba(16,185,129,0.14)",padding:"12px 16px 16px"}}>
       <div style={{fontSize:10,color:C.muted,fontWeight:800,letterSpacing:1.4,textTransform:"uppercase",marginBottom:10}}>Switch Group</div>
       {allGroups.map(g=>{const isCurrent=g.id===currentGroupId;return(<button key={g.id} className="switcher-btn" onClick={()=>{if(!isCurrent)onSwitch(g);onClose();}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"10px 12px",marginBottom:8,background:isCurrent?C.primaryLight:C.bg,border:`1.5px solid ${isCurrent?C.primary:C.border}`,borderRadius:14,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}><div style={{width:38,height:38,borderRadius:12,flexShrink:0,background:isCurrent?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:`linear-gradient(135deg,#667eea55,#764ba255)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{g.icon||"💰"}</div><div style={{flex:1,textAlign:"left",minWidth:0}}><div style={{fontWeight:800,fontSize:14,color:isCurrent?C.primary:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.name}</div><div style={{fontSize:11,color:C.textSub,marginTop:2}}>{g.members?.length||0} members</div></div>{isCurrent?<div style={{width:8,height:8,borderRadius:"50%",background:C.primary,flexShrink:0}}/>:<div style={{color:C.muted,fontSize:16,flexShrink:0}}>›</div>}</button>);})}
       <button onClick={()=>{onGoToGroups();onClose();}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"10px 12px",background:"none",border:`1.5px dashed ${C.border}`,borderRadius:14,cursor:"pointer",fontFamily:"inherit"}}><div style={{width:38,height:38,borderRadius:12,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>➕</div><div style={{textAlign:"left"}}><div style={{fontWeight:800,fontSize:14,color:C.primary}}>Create or Join a Group</div><div style={{fontSize:11,color:C.textSub,marginTop:2}}>Start a new squad or enter an invite code</div></div></button>
@@ -1180,16 +1182,21 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       const expPending=allPendingVotes.filter(v=>v.voteType==="expense");
       return(<div style={{padding:"16px 16px 8px"}} className="fade-up">
         {/* Hero */}
-        <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,borderRadius:26,padding:"26px 22px",marginBottom:16,position:"relative",overflow:"hidden",boxShadow:"0 14px 44px rgba(67,97,238,0.4)"}}>
-          <div style={{position:"absolute",top:-35,right:-35,width:140,height:140,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
+        <div style={{background:"linear-gradient(135deg,#0F172A 0%,#1E293B 100%)",borderRadius:24,padding:"26px 22px",marginBottom:16,position:"relative",overflow:"hidden",boxShadow:"0 16px 48px rgba(15,23,42,0.35)"}}>
+          <div style={{position:"absolute",top:-40,right:-40,width:160,height:160,borderRadius:"50%",background:"rgba(16,185,129,0.08)"}}/>
+          <div style={{position:"absolute",bottom:-30,left:-20,width:120,height:120,borderRadius:"50%",background:"rgba(16,185,129,0.05)"}}/>
           <div style={{position:"relative"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{fontSize:22}}>{gData.icon||"💰"}</div><div style={{fontSize:14,color:"rgba(255,255,255,0.82)",fontWeight:700}}>{gData.name}</div></div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",fontWeight:700,background:"rgba(255,255,255,0.12)",padding:"4px 10px",borderRadius:99}}>{dateStr}</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:36,height:36,borderRadius:10,background:"rgba(16,185,129,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{gData.icon||"💰"}</div>
+                <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",fontWeight:600,letterSpacing:-0.2}}>{gData.name}</div>
+              </div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",fontWeight:600,background:"rgba(255,255,255,0.08)",padding:"5px 12px",borderRadius:99,letterSpacing:0.3}}>{dateStr}</div>
             </div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",fontWeight:800,letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Treasury Balance</div>
-            <div style={{fontSize:46,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1.1}}>{fmtI(totalBal)}</div>
-            <div style={{display:"flex",gap:28,marginTop:18}}>{[["COLLECTED",fmtI(tc),"#A5BAFF"],["SPENT",fmtI(ts),"#FF9BAE"],["MEMBERS",members.length,"#A5E8D9"]].map(([l,v,c])=>(<div key={l}><div style={{fontSize:9,color:"rgba(255,255,255,0.45)",fontWeight:800,letterSpacing:1.5}}>{l}</div><div style={{color:c,fontSize:15,fontWeight:900,marginTop:4}}>{v}</div></div>))}</div>
+            <div style={{fontSize:10,color:"rgba(16,185,129,0.8)",fontWeight:700,letterSpacing:2.5,textTransform:"uppercase",marginBottom:8}}>Treasury Balance</div>
+            <div style={{fontSize:44,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1.05}}>{fmtI(totalBal)}</div>
+            <div style={{width:48,height:3,background:"#10B981",borderRadius:99,marginTop:14,marginBottom:18}}/>
+            <div style={{display:"flex",gap:24}}>{[["Collected",fmtI(tc),"#34D399"],["Spent",fmtI(ts),"#FCA5A5"],["Members",members.length,"#A5B4FC"]].map(([l,v,c])=>(<div key={l}><div style={{fontSize:10,color:"rgba(255,255,255,0.38)",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>{l}</div><div style={{color:c,fontSize:16,fontWeight:800,marginTop:4}}>{v}</div></div>))}</div>
           </div>
         </div>
         {/* My Dues Card — personal payment status */}
@@ -1251,7 +1258,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           {unpaid.length>0?<div><div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:6}}>Pending:</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{unpaid.map(m=><span key={m.uid} style={Pl(C,"red")}>{m.avatar} {m.name}</span>)}</div></div>:<div style={{display:"flex",alignItems:"center",gap:8,color:C.greenDark,fontSize:13,fontWeight:700}}><span>🎉</span> All paid this month!</div>}
         </div>
         {/* UPI */}
-        <div style={{...K(C),border:`1.5px solid ${C.purpleLight}`,background:dark?C.white:"linear-gradient(135deg,#F3EAFF,#EEF1FF)"}}>
+        <div style={{...K(C),border:`1.5px solid ${C.purpleLight}`,background:dark?C.white:"linear-gradient(135deg,#F3EAFF,#ECFDF5)"}}>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
             <div style={{width:48,height:48,borderRadius:15,background:`linear-gradient(135deg,${C.purple},#9B59F5)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:"0 4px 16px rgba(123,47,190,0.32)",flexShrink:0}}>💳</div>
             <div style={{flex:1}}>
@@ -1431,7 +1438,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           const mOut=txns.filter(t=>t.direction==="out").reduce((s,t)=>s+t.amount,0);
           return(<div key={month} style={{marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:13,fontWeight:900,color:C.text}}>{fmtMonth(month)}</div><div style={{display:"flex",gap:10}}>{mIn>0&&<span style={{fontSize:11,fontWeight:800,color:C.greenDark}}>+{fmtI(mIn)}</span>}{mOut>0&&<span style={{fontSize:11,fontWeight:800,color:C.red}}>-{fmtI(mOut)}</span>}</div></div>
-            <div style={{background:C.white,borderRadius:20,overflow:"hidden",border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(67,97,238,0.06)"}}>
+            <div style={{background:C.white,borderRadius:20,overflow:"hidden",border:`1px solid ${C.border}`,boxShadow:"0 2px 16px rgba(16,185,129,0.06)"}}>
               {txns.map((t,i)=>(<div key={t.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:i<txns.length-1?`1px solid ${C.border}`:"none"}}>
                 <div style={{width:42,height:42,borderRadius:14,background:t.colorLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,border:`1.5px solid ${t.color}22`}}>{t.icon}</div>
                 <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,color:C.text,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.label}</div><div style={{fontSize:11,color:C.muted,marginTop:2,fontWeight:600}}>{t.subLabel}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>{fmtD(t.date)}</div></div>
@@ -1630,7 +1637,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     };
     return(
       <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.6)",backdropFilter:"blur(10px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 16px"}} onClick={e=>{if(e.target===e.currentTarget)setVotePopupOpen(false);}}>
-        <div className="sheet-up" style={{background:C.white,borderRadius:28,width:"calc(100% - 32px)",maxWidth:420,boxShadow:"0 -8px 60px rgba(67,97,238,0.25)",overflow:"hidden"}}>
+        <div className="sheet-up" style={{background:C.white,borderRadius:28,width:"calc(100% - 32px)",maxWidth:420,boxShadow:"0 -8px 60px rgba(16,185,129,0.25)",overflow:"hidden"}}>
           <div style={{background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,padding:"18px 20px 16px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
               <div><div style={{fontSize:11,color:"rgba(255,255,255,0.65)",fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Pending Votes</div><div style={{fontSize:19,fontWeight:900,color:"#fff"}}>🗳️ {myPendingVotes.length} need{myPendingVotes.length===1?"s":""} your vote</div><div style={{fontSize:12,color:"rgba(255,255,255,0.65)",marginTop:3}}>Need {required} of {members.length} approvals (2/3 rule)</div></div>
@@ -1670,13 +1677,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
 
   // ── Render ─────────────────────────────────────────────────────
   return(
-    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Plus Jakarta Sans',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:80}}>
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:80}}>
       <style>{GS(C,dark)}</style>
-      <div ref={headerRef} style={{background:C.white,borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 20px rgba(67,97,238,0.07)"}}>
+      <div ref={headerRef} style={{background:C.white,borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 20px rgba(16,185,129,0.07)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 16px 11px"}}>
           <button onClick={()=>setSwitcherOpen(s=>!s)} style={{display:"flex",alignItems:"center",gap:10,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",padding:0,flex:1,minWidth:0,textAlign:"left"}}>
             <div style={{position:"relative",flexShrink:0}}>
-              <div style={{width:40,height:40,borderRadius:13,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:"0 3px 10px rgba(67,97,238,0.35)"}}>{gData.icon||"💰"}</div>
+              <div style={{width:40,height:40,borderRadius:13,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:"0 3px 10px rgba(16,185,129,0.35)"}}>{gData.icon||"💰"}</div>
               {allGroups.length>1&&<div style={{position:"absolute",bottom:-2,right:-2,width:14,height:14,borderRadius:"50%",background:C.primary,border:`2px solid ${C.white}`,display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="7" height="5" viewBox="0 0 7 5" fill="none"><path d={switcherOpen?"M1 4l2.5-2.5L6 4":"M1 1l2.5 2.5L6 1"} stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div>}
             </div>
             <div style={{flex:1,minWidth:0}}>
@@ -1688,14 +1695,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             <button onClick={()=>setModal("bellPanel")} style={{position:"relative",width:38,height:38,borderRadius:12,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:17,flexShrink:0}}>
               🔔{unreadBell>0&&<div style={{position:"absolute",top:4,right:4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.white}`}}>{unreadBell>9?"9+":unreadBell}</div>}
             </button>
-            {pendingCount>0&&<button onClick={()=>setVotePopupOpen(true)} style={{display:"flex",alignItems:"center",gap:5,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,border:"none",borderRadius:99,padding:"6px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 3px 12px rgba(67,97,238,0.35)"}} className="pulse">🗳️ {pendingCount}</button>}
+            {pendingCount>0&&<button onClick={()=>setVotePopupOpen(true)} style={{display:"flex",alignItems:"center",gap:5,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,border:"none",borderRadius:99,padding:"6px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 3px 12px rgba(16,185,129,0.35)"}} className="pulse">🗳️ {pendingCount}</button>}
             {isAdmin&&<button onClick={()=>setModal("groupSettings")} style={{background:C.primaryLight,border:"none",borderRadius:12,padding:"7px 11px",color:C.primary,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>⚙️</button>}
           </div>
         </div>
         {switcherOpen&&<GroupSwitcher allGroups={allGroups} currentGroupId={group.id} onSwitch={onSwitchGroup} onGoToGroups={onBack} C={C} onClose={()=>setSwitcherOpen(false)}/>}
       </div>
       {tabContent()}
-      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -4px 28px rgba(67,97,238,0.1)"}}>
+      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -4px 28px rgba(16,185,129,0.1)"}}>
         {tabs.map(t=>(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:"none",color:tab===t.id?C.primary:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:tab===t.id?`2.5px solid ${C.primary}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:700,transition:"all 0.18s"}}><span style={{fontSize:21}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>))}
       </nav>
       {renderModal()}
@@ -1732,7 +1739,7 @@ export default function App(){
 
   const C=getC(dark);
   if(checkingAuth)return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#0d1b6e,#4361EE)",flexDirection:"column",gap:20}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#0d1b6e,#10B981)",flexDirection:"column",gap:20}}>
       <style>{GS(C,dark)}</style>
       <div style={{width:74,height:74,borderRadius:24,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38}}>💰</div>
       <Spin size={38} color="white"/>
