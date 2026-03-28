@@ -1084,9 +1084,19 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     window.open(waUrl,"_blank");
     showT(`WhatsApp opened for ${m.name}! 🟢`);
   };
-  const addEvent=async f=>{await upGroup({events:[...(gData.events||[]),{id:gData.nextId,title:f.title,type:f.type,date:f.date,time:f.time,location:f.location||"",description:f.description||"",budget:Number(f.budget)||0,createdBy:userProfile.uid,createdByName:userProfile.name,createdByAvatar:userProfile.avatar,createdAt:new Date().toISOString(),rsvp:{yes:[userProfile.uid],no:[],maybe:[]}}],nextId:(gData.nextId||100)+1});showT("Event created! 🎉");closeModal();};
+  const openWA=msg=>window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
+  const addEvent=async f=>{
+    await upGroup({events:[...(gData.events||[]),{id:gData.nextId,title:f.title,type:f.type,date:f.date,time:f.time,location:f.location||"",description:f.description||"",budget:Number(f.budget)||0,createdBy:userProfile.uid,createdByName:userProfile.name,createdByAvatar:userProfile.avatar,createdAt:new Date().toISOString(),rsvp:{yes:[userProfile.uid],no:[],maybe:[]}}],nextId:(gData.nextId||100)+1});
+    showT("Event created! 🎉");closeModal();
+    const et=EVENT_TYPES.find(t=>t.v===f.type);
+    openWA(`${et?.icon||"🗓️"} *New Event — ${gData.name}*\n\n📌 ${f.title}\n📅 ${f.date}${f.time?" at "+f.time:""}\n${f.location?"📍 "+f.location+"\n":""}${f.description?"\n"+f.description+"\n":""}\nRSVP on the Treasury app! 🏏`);
+  };
   const rsvp=async(eid,status)=>{const events=(gData.events||[]).map(e=>{if(e.id!==eid)return e;const r={yes:[...e.rsvp.yes],no:[...e.rsvp.no],maybe:[...e.rsvp.maybe]};["yes","no","maybe"].forEach(k=>{r[k]=r[k].filter(x=>x!==userProfile.uid)});r[status].push(userProfile.uid);return{...e,rsvp:r}});await upGroup({events});showT("RSVP updated!");};
-  const postAnnounce=async(text,pinned=false)=>{await upGroup({announcements:[{id:gData.nextId,text,pinned,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,createdAt:new Date().toISOString()},...(gData.announcements||[])],nextId:(gData.nextId||100)+1});showT("Posted! 📢");closeModal();};
+  const postAnnounce=async(text,pinned=false)=>{
+    await upGroup({announcements:[{id:gData.nextId,text,pinned,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,createdAt:new Date().toISOString()},...(gData.announcements||[])],nextId:(gData.nextId||100)+1});
+    showT("Posted! 📢");closeModal();
+    openWA(`📢 *${gData.name} — Announcement*\n\n${text}\n\n— ${userProfile.avatar} ${userProfile.name}`);
+  };
   const deleteAnnounce=async id=>{await upGroup({announcements:(gData.announcements||[]).filter(a=>a.id!==id)});showT("Deleted");};
   const addGoal=async f=>{await upGroup({savingsGoals:[...(gData.savingsGoals||[]),{id:gData.nextId,title:f.title,target:Number(f.target),deadline:f.deadline,description:f.description||"",createdBy:userProfile.uid,createdAt:new Date().toISOString(),contributions:[]}],nextId:(gData.nextId||100)+1});showT("Goal created! 🎯");closeModal();};
   const saveGroupSettings=async f=>{await upGroup({name:f.name,icon:f.icon});showT("Saved! ✓");closeModal();};
@@ -1102,6 +1112,12 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     upGroup({[key]:[...(gData[key]||[]),item],nextId:(gData.nextId||100)+1});
     showT("Vote request sent to group! 🗳️");
     closeModal();
+    if(type==="emergency"){
+      openWA(`🆘 *URGENT — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* has raised an emergency fund request!\n\n💰 Amount: *${fmtI(payload.amount)}*\n📝 Reason: ${payload.reason}\n\nOpen the Treasury app to vote! ⚡`);
+    }
+    if(type==="expense"){
+      openWA(`🗳️ *New Expense Vote — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* requested an expense:\n\n💸 *${payload.title}* — ${fmtI(payload.amount)}\n📂 ${payload.category||"Other"}\n\nOpen the Treasury app to approve or reject! 👍👎`);
+    }
   };
 
   const castVote=async(voteType,voteId,approve)=>{
@@ -1127,6 +1143,11 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     }
     await upGroup({[key]:updated,...extra,nextId:(gData.nextId||100)+1});
     showT(approve?"Approved ✓":"Rejected ✗");
+    if(approve&&item.status==="approved"){
+      const typeLabels={expense:`✅ *Expense Approved — ${gData.name}*\n\n💸 *${item.title}* — ${fmtI(item.amount)}\n📂 ${item.category||"Other"}\n\nMoney released from treasury! 🏦`,emergency:`✅ *Emergency Approved — ${gData.name}*\n\n🆘 ${item.memberAvatar||""} *${item.memberName}*'s emergency request approved!\n💰 ${fmtI(item.amount)} released\n📝 ${item.reason}\n\nStay safe! 🙏`,goalRelease:`✅ *Goal Funded — ${gData.name}*\n\n🎯 *${item.goalTitle}*\n💰 ${fmtI(item.amount)} added from treasury!\n\nOne step closer to the goal! 🚀`};
+      const msg=typeLabels[voteType];
+      if(msg)openWA(msg);
+    }
   };
 
   const tabs=[{id:"dashboard",icon:"🏠",label:"Home"},{id:"members",icon:"👥",label:"Squad"},{id:"events",icon:"🗓️",label:"Events"},{id:"goals",icon:"🎯",label:"Goals"},{id:"txn",icon:"📒",label:"Ledger"},{id:"profile",icon:"👤",label:"Profile"}];
