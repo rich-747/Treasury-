@@ -1040,6 +1040,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const showT=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3200);};
   const upGroup=async data=>{try{await updateDoc(doc(db,"groups",group.id),data);}catch(e){showT("Save failed: "+e.message,"error");}};
 
+  // Auto-delete announcements older than 30 days
+  useEffect(()=>{
+    if(!gData?.announcements?.length)return;
+    const cutoff=Date.now()-30*24*60*60*1000;
+    const fresh=gData.announcements.filter(a=>new Date(a.createdAt?.toDate?.()??a.createdAt).getTime()>cutoff);
+    if(fresh.length<gData.announcements.length)upGroup({announcements:fresh});
+  },[gData?.announcements?.length]);
+
   if(loading||!gData)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg,flexDirection:"column",gap:16}}><style>{GS(C,dark)}</style><Spin size={42} color={C.primary}/><div style={{color:C.textSub,fontSize:14,fontWeight:600}}>Loading group...</div></div>);
 
   // ── Computed values ────────────────────────────────────────────
@@ -1095,8 +1103,8 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const postAnnounce=async(text,pinned=false)=>{
     await upGroup({announcements:[{id:gData.nextId,text,pinned,memberId:userProfile.uid,memberName:userProfile.name,memberAvatar:userProfile.avatar,createdAt:new Date().toISOString()},...(gData.announcements||[])],nextId:(gData.nextId||100)+1});
     showT("Posted! 📢");closeModal();
-    openWA(`📢 *${gData.name} — Announcement*\n\n${text}\n\n— ${userProfile.avatar} ${userProfile.name}`);
   };
+  const shareAnnounceWA=a=>openWA(`📢 *${gData.name} — Announcement*\n\n${a.text}\n\n— ${a.memberAvatar} ${a.memberName}`);
   const deleteAnnounce=async id=>{await upGroup({announcements:(gData.announcements||[]).filter(a=>a.id!==id)});showT("Deleted");};
   const addGoal=async f=>{await upGroup({savingsGoals:[...(gData.savingsGoals||[]),{id:gData.nextId,title:f.title,target:Number(f.target),deadline:f.deadline,description:f.description||"",createdBy:userProfile.uid,createdAt:new Date().toISOString(),contributions:[]}],nextId:(gData.nextId||100)+1});showT("Goal created! 🎯");closeModal();};
   const saveGroupSettings=async f=>{await upGroup({name:f.name,icon:f.icon});showT("Saved! ✓");closeModal();};
@@ -1447,7 +1455,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           {announcements.map(a=>(<div key={a.id} style={{...K(C,{marginBottom:12}),border:a.pinned?`1.5px solid ${C.yellow}`:undefined}}>
             {a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}
             <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:C.redLight,color:C.red,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <button onClick={()=>shareAnnounceWA(a)} title="Share on WhatsApp" style={{background:"#E8FFF1",color:"#128C7E",border:"1.5px solid #25D36644",borderRadius:8,padding:"4px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🟢</button>
+                {(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:C.redLight,color:C.red,border:"none",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Delete</button>}
+              </div>
+            </div>
           </div>))}
         </>}
         {view==="compose"&&<>
@@ -1569,7 +1583,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         {announcements.map(a=>(<div key={a.id} style={{...K(C,{padding:"14px 16px",marginBottom:10}),border:a.pinned?`1.5px solid ${C.yellow}66`:`1px solid ${C.border}`}}>
           {a.pinned&&<div style={{...Pl(C,"yellow"),fontSize:10,marginBottom:8}}>📌 Pinned</div>}
           <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:8}}>{a.text}</div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>{(isAdmin||a.memberId===userProfile.uid)&&<button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700}}>✕</button>}</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>{a.memberAvatar} {a.memberName} · {fmtDT(a.createdAt)}</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <button onClick={()=>shareAnnounceWA(a)} title="Share on WhatsApp" style={{background:"none",border:"none",color:"#25D366",cursor:"pointer",fontSize:15,lineHeight:1}}>🟢</button>
+              <button onClick={()=>deleteAnnounce(a.id)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:700}}>✕</button>
+            </div>
+          </div>
         </div>))}
         {myNotifs.length>0&&<><div style={{fontSize:11,color:C.muted,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",margin:"16px 0 10px"}}>🔔 Your Notifications</div>{myNotifs.slice(0,5).map(n=>(<div key={n.id} style={K(C,{padding:"12px 14px",marginBottom:8})}><div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.55}}>{n.message}</div><div style={{fontSize:11,color:C.muted,marginTop:5,fontWeight:600}}>{fmtDT(n.createdAt)}</div></div>))}</>}
         <button style={Bt(C,"p",{width:"100%",padding:"13px",marginTop:8})} className="btn-p" onClick={()=>{closeModal();setMAnnView("compose");setModal("announce");}}>📢 Post Announcement</button>
