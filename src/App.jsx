@@ -1056,25 +1056,28 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const upGroup=async data=>{try{await updateDoc(doc(db,"groups",group.id),data);}catch(e){showT("Save failed: "+e.message,"error");}};
 
   // ── FCM Push Notifications ──────────────────────────────────────
-  // Register device token and store it inside the group member entry (no cross-user reads needed)
   useEffect(()=>{
     if(!gData)return;
     let unsubMsg=()=>{};
     (async()=>{
       try{
         const messaging=await messagingPromise;
-        if(!messaging)return;
+        if(!messaging){showT("🔴 FCM: browser not supported","error");return;}
+
         const permission=await Notification.requestPermission();
-        if(permission!=="granted")return;
+        if(permission!=="granted"){showT("🔴 FCM: notifications blocked — please allow in browser settings","error");return;}
+
         const tok=await getToken(messaging,{vapidKey:VAPID_KEY});
-        if(tok){
-          // Store token inside the group's member array entry so any member can read it
-          const myEntry=((gData.members)||[]).find(m=>m.uid===userProfile.uid);
-          if(myEntry&&myEntry.fcmToken!==tok){
-            const updatedMembers=(gData.members||[]).map(m=>m.uid===userProfile.uid?{...m,fcmToken:tok}:m);
-            await updateDoc(doc(db,"groups",group.id),{members:updatedMembers});
-          }
+        if(!tok){showT("🔴 FCM: failed to get device token","error");return;}
+
+        // Store token inside the group member entry
+        const myEntry=(gData.members||[]).find(m=>m.uid===userProfile.uid);
+        if(myEntry&&myEntry.fcmToken!==tok){
+          const updatedMembers=(gData.members||[]).map(m=>m.uid===userProfile.uid?{...m,fcmToken:tok}:m);
+          await updateDoc(doc(db,"groups",group.id),{members:updatedMembers});
+          showT("🟢 Notifications ready!","success");
         }
+
         // Show toast for foreground messages
         unsubMsg=onMessage(messaging,payload=>{
           const t=payload.notification?.title||"Treasury";
@@ -1082,6 +1085,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           showT(`🔔 ${t}${b?": "+b:""}`,"info");
         });
       }catch(e){
+        showT("🔴 FCM error: "+e.message,"error");
         console.warn("FCM setup failed:",e.message);
       }
     })();
