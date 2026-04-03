@@ -1313,44 +1313,44 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           const progressPct=monthlyTarget>0?Math.min(100,Math.round((thisMonthCollected/monthlyTarget)*100)):0;
           const remaining=Math.max(0,monthlyTarget-thisMonthCollected);
           return(
-            <div style={{borderRadius:22,marginBottom:14,overflow:"hidden",background:"linear-gradient(140deg,#0F172A 0%,#1E1B4B 55%,#162032 100%)",boxShadow:"0 16px 48px rgba(15,23,42,0.5)",position:"relative"}}>
-              <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,0.2) 0%,transparent 70%)"}}/>
-              <div style={{position:"absolute",bottom:-50,left:-20,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(16,185,129,0.12) 0%,transparent 70%)"}}/>
+            <div style={{borderRadius:22,marginBottom:14,overflow:"hidden",background:"#FFFFFF",boxShadow:"0 4px 24px rgba(99,102,241,0.1)",border:"2px solid rgba(99,102,241,0.15)",position:"relative"}}>
+              <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,0.06) 0%,transparent 70%)"}}/>
+              <div style={{position:"absolute",bottom:-50,left:-20,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(16,185,129,0.05) 0%,transparent 70%)"}}/>
               {/* Top: Target & Collected */}
               <div style={{padding:"22px 20px 18px",position:"relative"}}>
-                <div style={{fontSize:9,color:"rgba(99,102,241,0.8)",fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",marginBottom:14}}>📅 MONTHLY TARGET — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
+                <div style={{fontSize:9,color:"#6366F1",fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",marginBottom:14}}>📅 MONTHLY TARGET — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
                 <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:18}}>
                   <div>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:600,marginBottom:5,letterSpacing:0.5}}>Group Target</div>
-                    <div style={{fontSize:42,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1}}>{fmtI(monthlyTarget)}</div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:6,fontWeight:500}}>{members.length} members × {fmtI(monthlyAmt)}/person</div>
+                    <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600,marginBottom:5,letterSpacing:0.5}}>Group Target</div>
+                    <div style={{fontSize:42,fontWeight:900,color:"#1E1B4B",letterSpacing:-2,lineHeight:1}}>{fmtI(monthlyTarget)}</div>
+                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:6,fontWeight:500}}>{members.length} members × {fmtI(monthlyAmt)}/person</div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:10,color:"rgba(16,185,129,0.85)",fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Collected</div>
+                    <div style={{fontSize:10,color:"#10B981",fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Collected</div>
                     <div style={{fontSize:26,fontWeight:900,color:"#10B981",lineHeight:1}}>{fmtI(thisMonthCollected)}</div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:5}}>{progressPct}% of target</div>
+                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:5}}>{progressPct}% of target</div>
                   </div>
                 </div>
                 {/* Progress bar */}
-                <div style={{background:"rgba(255,255,255,0.08)",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
-                  <div style={{height:"100%",width:`${progressPct}%`,background:progressPct>=100?"linear-gradient(90deg,#10B981,#06D6A0)":"linear-gradient(90deg,#6366F1,#10B981)",borderRadius:99,transition:"width 1s ease",boxShadow:progressPct>0?"0 0 10px rgba(99,102,241,0.5)":"none"}}/>
+                <div style={{background:"#F1F5F9",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
+                  <div style={{height:"100%",width:`${progressPct}%`,background:progressPct>=100?"linear-gradient(90deg,#10B981,#06D6A0)":"linear-gradient(90deg,#6366F1,#10B981)",borderRadius:99,transition:"width 1s ease",boxShadow:progressPct>0?"0 0 8px rgba(99,102,241,0.3)":"none"}}/>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontWeight:600}}>{paidIds.length} of {members.length} paid</div>
+                  <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>{paidIds.length} of {members.length} paid</div>
                   {remaining>0
-                    ?<div style={{fontSize:10,color:"rgba(244,63,94,0.8)",fontWeight:700}}>{fmtI(remaining)} remaining</div>
-                    :<div style={{fontSize:10,color:"rgba(16,185,129,0.9)",fontWeight:700}}>🎉 Target reached!</div>
+                    ?<div style={{fontSize:10,color:"#F43F5E",fontWeight:700}}>{fmtI(remaining)} remaining</div>
+                    :<div style={{fontSize:10,color:"#10B981",fontWeight:700}}>🎉 Target reached!</div>
                   }
                 </div>
               </div>
               {/* Bottom: per-person amount + change button */}
-              <div style={{background:"rgba(255,255,255,0.04)",borderTop:"1px solid rgba(255,255,255,0.07)",padding:"13px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{background:"#F8FAFC",borderTop:"1px solid rgba(99,102,241,0.1)",padding:"13px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600,letterSpacing:0.5}}>PER PERSON / MONTH</div>
-                  <div style={{fontSize:20,fontWeight:900,color:"rgba(255,255,255,0.9)",marginTop:4,letterSpacing:-0.5}}>{fmtI(monthlyAmt)}</div>
+                  <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600,letterSpacing:0.5}}>PER PERSON / MONTH</div>
+                  <div style={{fontSize:20,fontWeight:900,color:"#4338CA",marginTop:4,letterSpacing:-0.5}}>{fmtI(monthlyAmt)}</div>
                 </div>
-                <button onClick={()=>setModal("changeAmount")} style={{display:"flex",alignItems:"center",gap:7,background:"linear-gradient(135deg,rgba(99,102,241,0.3),rgba(99,102,241,0.15))",border:"1px solid rgba(99,102,241,0.4)",borderRadius:14,padding:"9px 16px",color:"rgba(255,255,255,0.9)",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",backdropFilter:"blur(8px)",transition:"all 0.2s"}}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <button onClick={()=>setModal("changeAmount")} style={{display:"flex",alignItems:"center",gap:7,background:"linear-gradient(135deg,#6366F1,#4F46E5)",border:"none",borderRadius:14,padding:"9px 16px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 4px 12px rgba(99,102,241,0.3)",transition:"all 0.2s"}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Change Amount
                 </button>
               </div>
