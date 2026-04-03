@@ -1308,12 +1308,12 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         {/* 2×2 Metric Grid */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
           {[
-            {label:"Collected",val:fmtI(tc),icon:"💰",color:"#10B981",bg:dark?"#052E1C":"#ECFDF5",border:"rgba(16,185,129,0.18)"},
-            {label:"Total Spent",val:fmtI(ts),icon:"💸",color:"#F43F5E",bg:dark?"#2D0814":"#FFF1F3",border:"rgba(244,63,94,0.18)"},
-            {label:"Members",val:members.length,icon:"👥",color:"#8B5CF6",bg:dark?"#1A0F40":"#F5F3FF",border:"rgba(139,92,246,0.18)"},
-            {label:"Pending Votes",val:allPendingVotes.length||"—",icon:"🗳️",color:"#F59E0B",bg:dark?"#2D1A00":"#FFFBEB",border:"rgba(245,158,11,0.18)"},
-          ].map(({label,val,icon,color,bg,border})=>(
-            <div key={label} style={{background:bg,borderRadius:16,padding:"16px 14px",border:`1px solid ${border}`,boxShadow:"0 1px 6px rgba(0,0,0,0.04)"}}>
+            {label:"Collected",val:fmtI(tc),icon:"💰",color:"#10B981",bg:dark?"#052E1C":"#ECFDF5",border:"rgba(16,185,129,0.38)",shadow:"0 4px 16px rgba(16,185,129,0.1)"},
+            {label:"Total Spent",val:fmtI(ts),icon:"💸",color:"#F43F5E",bg:dark?"#2D0814":"#FFF1F3",border:"rgba(244,63,94,0.35)",shadow:"0 4px 16px rgba(244,63,94,0.1)"},
+            {label:"Members",val:members.length,icon:"👥",color:"#8B5CF6",bg:dark?"#1A0F40":"#F5F3FF",border:"rgba(139,92,246,0.35)",shadow:"0 4px 16px rgba(139,92,246,0.1)"},
+            {label:"Pending Votes",val:allPendingVotes.length||"—",icon:"🗳️",color:"#F59E0B",bg:dark?"#2D1A00":"#FFFBEB",border:"rgba(245,158,11,0.38)",shadow:"0 4px 16px rgba(245,158,11,0.1)"},
+          ].map(({label,val,icon,color,bg,border,shadow})=>(
+            <div key={label} style={{background:bg,borderRadius:16,padding:"16px 14px",border:`1.5px solid ${border}`,boxShadow:shadow}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:10,color,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",lineHeight:1.3}}>{label}</div>
                 <span style={{fontSize:17}}>{icon}</span>
@@ -1420,20 +1420,20 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           );
         })()}
         {/* Invite */}
-        <div style={{...K(C),border:`1.5px solid ${C.primaryMid}`,background:dark?C.white:C.primaryLight}}>
+        <div style={{...K(C),border:`1.5px solid rgba(99,102,241,0.35)`,boxShadow:"0 4px 18px rgba(99,102,241,0.1)",background:dark?C.white:C.primaryLight}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Invite Code</div><div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:5}}>{gData.inviteCode}</div></div>
             <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
           </div>
         </div>
         {/* Month dues */}
-        <div style={K(C)}>
+        <div style={{...K(C),border:`1.5px solid rgba(99,102,241,0.28)`,boxShadow:"0 4px 18px rgba(99,102,241,0.08)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:800,color:C.text,fontSize:15}}>📅 {today.toLocaleString("default",{month:"long",year:"numeric"})}</div><span style={Pl(C,paidIds.length===members.length?"green":"blue")}>{paidIds.length}/{members.length} paid</span></div>
           <div style={{background:C.border,borderRadius:99,height:8,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${members.length?(paidIds.length/members.length)*100:0}%`,background:"linear-gradient(90deg,#10B981,#6366F1,#8B5CF6)",borderRadius:99,transition:"width 1s",boxShadow:"0 0 8px rgba(99,102,241,0.4)"}}/></div>
           {unpaid.length>0?<div><div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:6}}>Pending:</div><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{unpaid.map(m=><span key={m.uid} style={Pl(C,"red")}>{m.avatar} {m.name}</span>)}</div></div>:<div style={{display:"flex",alignItems:"center",gap:8,color:C.greenDark,fontSize:13,fontWeight:700}}><span>🎉</span> All paid this month!</div>}
         </div>
         {/* UPI */}
-        <div style={{...K(C),border:`1.5px solid ${C.purpleLight}`,background:dark?C.white:"linear-gradient(135deg,#F3EAFF,#ECFDF5)"}}>
+        <div style={{...K(C),border:`1.5px solid rgba(139,92,246,0.32)`,boxShadow:"0 4px 18px rgba(139,92,246,0.1)",background:dark?C.white:"linear-gradient(135deg,#F3EAFF,#ECFDF5)"}}>
           <div style={{display:"flex",gap:14,alignItems:"center"}}>
             <div style={{width:48,height:48,borderRadius:15,background:`linear-gradient(135deg,${C.purple},#9B59F5)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,boxShadow:"0 4px 16px rgba(123,47,190,0.32)",flexShrink:0}}>💳</div>
             <div style={{flex:1}}>
@@ -1443,9 +1443,9 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           </div>
         </div>
         {/* Upcoming events */}
-        {upcoming.length>0&&<div style={K(C)}><SH C={C} label="Upcoming Events" action={()=>setTab("events")} actionLabel="See all"/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const d=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",padding:"10px 12px",background:C.primaryLight,borderRadius:16,marginBottom:8,cursor:"pointer"}} onClick={()=>setTab("events")}><div style={{width:42,height:42,borderRadius:13,background:`${et.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{color:C.text,fontSize:13,fontWeight:800}}>{ev.title}</div><div style={{color:C.textSub,fontSize:11,marginTop:2}}>📅 {fmtD(ev.date)} · ⏰ {ev.time}</div></div><div style={{...Pl(C,d<=1?"red":d<=3?"yellow":"green"),fontSize:11}}>{d===0?"Today!":d===1?"Tomorrow":d+"d away"}</div></div>);})}</div>}
+        {upcoming.length>0&&<div style={{...K(C),border:`1.5px solid rgba(245,158,11,0.3)`,boxShadow:"0 4px 18px rgba(245,158,11,0.08)"}}><SH C={C} label="Upcoming Events" action={()=>setTab("events")} actionLabel="See all"/>{upcoming.map(ev=>{const et=EVENT_TYPES.find(t=>t.v===ev.type)||EVENT_TYPES[6];const d=Math.ceil((new Date(ev.date)-now())/(1000*60*60*24));return(<div key={ev.id} style={{display:"flex",gap:12,alignItems:"center",padding:"10px 12px",background:C.primaryLight,borderRadius:16,marginBottom:8,cursor:"pointer"}} onClick={()=>setTab("events")}><div style={{width:42,height:42,borderRadius:13,background:`${et.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{et.icon}</div><div style={{flex:1}}><div style={{color:C.text,fontSize:13,fontWeight:800}}>{ev.title}</div><div style={{color:C.textSub,fontSize:11,marginTop:2}}>📅 {fmtD(ev.date)} · ⏰ {ev.time}</div></div><div style={{...Pl(C,d<=1?"red":d<=3?"yellow":"green"),fontSize:11}}>{d===0?"Today!":d===1?"Tomorrow":d+"d away"}</div></div>);})}</div>}
         {/* Announcements */}
-        {announcements.length>0&&<div style={K(C)}><SH C={C} label="📢 Announcements" action={()=>setModal("announce")} actionLabel="+ Post"/>{announcements.slice(0,2).map((a,i)=>(<div key={a.id} style={{borderLeft:`3px solid ${a.pinned?C.yellow:C.primary}`,paddingLeft:14,paddingBottom:i<1?14:0,marginBottom:i<1?14:0,borderBottom:i<1&&announcements.length>1?`1px solid ${C.border}`:""}}>  <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:5}}>{a.text}</div><div style={{color:C.textSub,fontSize:11,fontWeight:700}}>{a.memberAvatar} {a.memberName||"Member"} · {fmtD(a.createdAt)}</div></div>))}{announcements.length>2&&<button onClick={()=>setModal("bellPanel")} style={{...Bt(C,"gh",{width:"100%",padding:"8px",fontSize:12,marginTop:10})}}>View all {announcements.length}</button>}</div>}
+        {announcements.length>0&&<div style={{...K(C),border:`1.5px solid rgba(99,102,241,0.28)`,boxShadow:"0 4px 18px rgba(99,102,241,0.07)"}}><SH C={C} label="📢 Announcements" action={()=>setModal("announce")} actionLabel="+ Post"/>{announcements.slice(0,2).map((a,i)=>(<div key={a.id} style={{borderLeft:`3px solid ${a.pinned?C.yellow:C.primary}`,paddingLeft:14,paddingBottom:i<1?14:0,marginBottom:i<1?14:0,borderBottom:i<1&&announcements.length>1?`1px solid ${C.border}`:""}}>  <div style={{color:C.text,fontSize:14,lineHeight:1.65,marginBottom:5}}>{a.text}</div><div style={{color:C.textSub,fontSize:11,fontWeight:700}}>{a.memberAvatar} {a.memberName||"Member"} · {fmtD(a.createdAt)}</div></div>))}{announcements.length>2&&<button onClick={()=>setModal("bellPanel")} style={{...Bt(C,"gh",{width:"100%",padding:"8px",fontSize:12,marginTop:10})}}>View all {announcements.length}</button>}</div>}
         {/* Action buttons */}
         <div style={{display:"flex",gap:10,marginBottom:10}}>
           <button style={{...Bt(C,"p",{flex:2,padding:"14px",fontSize:14,borderRadius:16})}} className="btn-p" onClick={()=>setModal("announce")}>📢 Announce</button>
