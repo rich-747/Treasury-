@@ -337,13 +337,11 @@ function AuthScreen({onAuth}){
   const [success, setSuccess] = useState("");
   const timerRef = useRef(null);
 
-  // Handle Google redirect result (mobile sign-in comes back here)
+  // Handle Google redirect result (fallback for popup-blocked cases)
   useEffect(()=>{
-    setLoading(true);
     getRedirectResult(auth)
       .then(r=>{ if(r?.user) onAuth(r.user); })
-      .catch(e=>{ if(e.code&&e.code!=="auth/no-current-user") setError("Google sign-in failed. Try again."); })
-      .finally(()=>setLoading(false));
+      .catch(()=>{});
   },[]);
 
   // Countdown for resend
@@ -467,15 +465,22 @@ function AuthScreen({onAuth}){
   const handleGoogle = async () => {
     setLoading(true); setError("");
     const provider = new GoogleAuthProvider();
-    const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||window.innerWidth<768;
-    if(isMobile){
-      // Redirect flow — page will navigate away, result handled by getRedirectResult on return
-      try{ await signInWithRedirect(auth, provider); }
-      catch(e){ setError("Google sign-in failed. Try again."); setLoading(false); }
-    } else {
-      try{ const r = await signInWithPopup(auth, provider); onAuth(r.user); }
-      catch(e){ setError(e.code==="auth/popup-closed-by-user"?"Sign-in cancelled.":"Google sign-in failed. Try again."); }
-      setLoading(false);
+    try{
+      // signInWithPopup works on mobile Chrome for user-triggered actions
+      const r = await signInWithPopup(auth, provider);
+      onAuth(r.user);
+    } catch(e){
+      if(e.code==="auth/popup-blocked"||e.code==="auth/popup-cancelled"){
+        // Only fall back to redirect if popup was genuinely blocked
+        try{ await signInWithRedirect(auth, provider); }
+        catch(e2){ setError("Google sign-in failed. Try again."); setLoading(false); }
+      } else if(e.code==="auth/popup-closed-by-user"){
+        setError("Sign-in cancelled.");
+        setLoading(false);
+      } else {
+        setError("Google sign-in failed: "+( e.code||e.message));
+        setLoading(false);
+      }
     }
   };
 
