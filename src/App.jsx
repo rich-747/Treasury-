@@ -1971,6 +1971,22 @@ export default function App(){
   const [dark,setDark]=useState(()=>{try{return localStorage.getItem("treasury_theme")==="dark";}catch{return false;}});
   const toggleDark=()=>{const n=!dark;setDark(n);try{localStorage.setItem("treasury_theme",n?"dark":"light");}catch{}};
 
+  // ── PWA Install Prompt (WebAPK — no Chrome badge) ──────────────
+  const [installPrompt,setInstallPrompt]=useState(null);
+  const [installBanner,setInstallBanner]=useState(false);
+  useEffect(()=>{
+    const handler=e=>{e.preventDefault();setInstallPrompt(e);setInstallBanner(true);};
+    window.addEventListener("beforeinstallprompt",handler);
+    window.addEventListener("appinstalled",()=>{setInstallBanner(false);setInstallPrompt(null);});
+    return()=>window.removeEventListener("beforeinstallprompt",handler);
+  },[]);
+  const doInstall=async()=>{
+    if(!installPrompt)return;
+    installPrompt.prompt();
+    const{outcome}=await installPrompt.userChoice;
+    if(outcome==="accepted"){setInstallBanner(false);setInstallPrompt(null);}
+  };
+
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,async user=>{
       if(user){setAuthUser(user);const snap=await getDoc(doc(db,"users",user.uid));if(snap.exists())setUserProfile(snap.data());else setUserProfile(null);}
@@ -1988,6 +2004,22 @@ export default function App(){
   },[userProfile]);
 
   const C=getC(dark);
+
+  // Install banner overlay (shown on top of any screen)
+  const InstallBanner=installBanner?(
+    <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:408,zIndex:999,fontFamily:"'Inter',sans-serif"}}>
+      <div style={{background:"linear-gradient(135deg,#4F46E5,#6366F1)",borderRadius:18,padding:"14px 16px",boxShadow:"0 8px 32px rgba(99,102,241,0.45)",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:42,height:42,borderRadius:13,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>💰</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:900,color:"#fff"}}>Install Treasury</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.72)",marginTop:2}}>Get the full app — no Chrome badge</div>
+        </div>
+        <button onClick={doInstall} style={{background:"#fff",border:"none",borderRadius:11,padding:"8px 14px",color:"#4F46E5",fontSize:12,fontWeight:900,cursor:"pointer",fontFamily:"inherit",flexShrink:0,boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>Install</button>
+        <button onClick={()=>setInstallBanner(false)} style={{background:"rgba(255,255,255,0.18)",border:"none",borderRadius:9,width:28,height:28,color:"#fff",cursor:"pointer",fontSize:15,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+      </div>
+    </div>
+  ):null;
+
   if(checkingAuth)return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#0d1b6e,#10B981)",flexDirection:"column",gap:20}}>
       <style>{GS(C,dark)}</style>
@@ -1996,8 +2028,8 @@ export default function App(){
       <div style={{color:"rgba(255,255,255,0.65)",fontSize:14,fontWeight:700}}>Loading Treasury...</div>
     </div>
   );
-  if(!authUser)return <AuthScreen onAuth={setAuthUser}/>;
-  if(!userProfile)return <ProfileSetup user={authUser} onComplete={setUserProfile}/>;
-  if(selectedGroup)return(<TreasuryApp group={selectedGroup} userProfile={userProfile} allGroups={allGroups} onSwitchGroup={g=>setSelectedGroup(g)} onBack={()=>setSelectedGroup(null)} onUpdateProfile={setUserProfile} dark={dark} onToggleDark={toggleDark}/>);
-  return <GroupScreen userProfile={userProfile} onSelectGroup={setSelectedGroup} dark={dark}/>;
+  if(!authUser)return <>{InstallBanner}<AuthScreen onAuth={setAuthUser}/></>;
+  if(!userProfile)return <>{InstallBanner}<ProfileSetup user={authUser} onComplete={setUserProfile}/></>;
+  if(selectedGroup)return <>{InstallBanner}<TreasuryApp group={selectedGroup} userProfile={userProfile} allGroups={allGroups} onSwitchGroup={g=>setSelectedGroup(g)} onBack={()=>setSelectedGroup(null)} onUpdateProfile={setUserProfile} dark={dark} onToggleDark={toggleDark}/></>;
+  return <>{InstallBanner}<GroupScreen userProfile={userProfile} onSelectGroup={setSelectedGroup} dark={dark}/></>;
 }
