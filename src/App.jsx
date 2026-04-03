@@ -1009,6 +1009,23 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const [mFilterType,setMFilterType]=useState("all");
 
   useEffect(()=>{const h=e=>{if(headerRef.current&&!headerRef.current.contains(e.target))setSwitcherOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
+
+  // ── Hardware back button (Android PWA) ─────────────────────────
+  useEffect(()=>{
+    // Push an initial entry so we always have something to pop back to
+    window.history.pushState({squad:true},"","");
+    const onPop=()=>{
+      // Re-push so the stack never empties (prevents app close)
+      window.history.pushState({squad:true},"","");
+      if(modal){setModal(null);return;}
+      if(hamburgerOpen){setHamburgerOpen(false);return;}
+      if(votePopupOpen){setVotePopupOpen(false);return;}
+      if(switcherOpen){setSwitcherOpen(false);return;}
+      if(tab!=="dashboard"){setTab("dashboard");return;}
+    };
+    window.addEventListener("popstate",onPop);
+    return()=>window.removeEventListener("popstate",onPop);
+  },[tab,modal,hamburgerOpen,votePopupOpen,switcherOpen]);
   useEffect(()=>{const unsub=onSnapshot(doc(db,"groups",group.id),snap=>{if(snap.exists()){const d={id:snap.id,...snap.data()};setGData(d);setUpiVal(d.upiId||"");}setLoading(false);});return()=>unsub();},[group.id]);
 
   // Vote popup useEffect — must be BEFORE any early returns (hooks rules)
@@ -1313,7 +1330,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           const progressPct=monthlyTarget>0?Math.min(100,Math.round((thisMonthCollected/monthlyTarget)*100)):0;
           const remaining=Math.max(0,monthlyTarget-thisMonthCollected);
           return(
-            <div style={{borderRadius:22,marginBottom:14,overflow:"hidden",background:"#FFFFFF",boxShadow:"0 4px 24px rgba(99,102,241,0.1)",border:"2px solid rgba(99,102,241,0.15)",position:"relative"}}>
+            <div style={{borderRadius:22,marginBottom:14,overflow:"hidden",background:"#FFFFFF",boxShadow:"0 8px 32px rgba(99,102,241,0.14), 0 0 0 1.5px rgba(99,102,241,0.22), inset 0 1px 0 rgba(255,255,255,0.9)",border:"1.5px solid rgba(99,102,241,0.28)",position:"relative"}}>
               <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,0.06) 0%,transparent 70%)"}}/>
               <div style={{position:"absolute",bottom:-50,left:-20,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(16,185,129,0.05) 0%,transparent 70%)"}}/>
               {/* Top: Target & Collected */}
@@ -1321,22 +1338,22 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                 <div style={{fontSize:9,color:"#6366F1",fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",marginBottom:14}}>📅 MONTHLY TARGET — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
                 <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:18}}>
                   <div>
-                    <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600,marginBottom:5,letterSpacing:0.5}}>Group Target</div>
+                    <div style={{fontSize:10,color:"#4B5563",fontWeight:700,marginBottom:5,letterSpacing:0.5}}>Group Target</div>
                     <div style={{fontSize:42,fontWeight:900,color:"#1E1B4B",letterSpacing:-2,lineHeight:1}}>{fmtI(monthlyTarget)}</div>
-                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:6,fontWeight:500}}>{members.length} members × {fmtI(monthlyAmt)}/person</div>
+                    <div style={{fontSize:11,color:"#4B5563",marginTop:6,fontWeight:600}}>{members.length} members × {fmtI(monthlyAmt)}/person</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontSize:10,color:"#10B981",fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Collected</div>
                     <div style={{fontSize:26,fontWeight:900,color:"#10B981",lineHeight:1}}>{fmtI(thisMonthCollected)}</div>
-                    <div style={{fontSize:11,color:"#9CA3AF",marginTop:5}}>{progressPct}% of target</div>
+                    <div style={{fontSize:11,color:"#4B5563",marginTop:5,fontWeight:600}}>{progressPct}% of target</div>
                   </div>
                 </div>
                 {/* Progress bar */}
-                <div style={{background:"#F1F5F9",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
+                <div style={{background:"#E5E7EB",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
                   <div style={{height:"100%",width:`${progressPct}%`,background:progressPct>=100?"linear-gradient(90deg,#10B981,#06D6A0)":"linear-gradient(90deg,#6366F1,#10B981)",borderRadius:99,transition:"width 1s ease",boxShadow:progressPct>0?"0 0 8px rgba(99,102,241,0.3)":"none"}}/>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>{paidIds.length} of {members.length} paid</div>
+                  <div style={{fontSize:10,color:"#4B5563",fontWeight:700}}>{paidIds.length} of {members.length} paid</div>
                   {remaining>0
                     ?<div style={{fontSize:10,color:"#F43F5E",fontWeight:700}}>{fmtI(remaining)} remaining</div>
                     :<div style={{fontSize:10,color:"#10B981",fontWeight:700}}>🎉 Target reached!</div>
@@ -1346,7 +1363,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
               {/* Bottom: per-person amount + change button */}
               <div style={{background:"#F8FAFC",borderTop:"1px solid rgba(99,102,241,0.1)",padding:"13px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div>
-                  <div style={{fontSize:10,color:"#9CA3AF",fontWeight:600,letterSpacing:0.5}}>PER PERSON / MONTH</div>
+                  <div style={{fontSize:10,color:"#4B5563",fontWeight:700,letterSpacing:0.5}}>PER PERSON / MONTH</div>
                   <div style={{fontSize:20,fontWeight:900,color:"#4338CA",marginTop:4,letterSpacing:-0.5}}>{fmtI(monthlyAmt)}</div>
                 </div>
                 <button onClick={()=>setModal("changeAmount")} style={{display:"flex",alignItems:"center",gap:7,background:"linear-gradient(135deg,#6366F1,#4F46E5)",border:"none",borderRadius:14,padding:"9px 16px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 4px 12px rgba(99,102,241,0.3)",transition:"all 0.2s"}}>
