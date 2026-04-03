@@ -1305,58 +1305,6 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             </div>
           ))}
         </div>
-        {/* My Dues Card — personal payment status */}
-        {(()=>{
-          const iMePaid = paidIds.includes(userProfile.uid);
-          const myMonthlyAmt = gData.monthlyAmount||200;
-          // Calculate how many months I have missed (unpaid months in past)
-          const allMyContribs = (gData.contributions||[]).filter(c=>c.memberId===userProfile.uid);
-          const joinedMonth = members.find(m=>m.uid===userProfile.uid)?.joinedAt ? getMK(new Date(members.find(m=>m.uid===userProfile.uid).joinedAt)) : thisMonth;
-          return(
-            <div style={{
-              borderRadius:20,marginBottom:14,overflow:"hidden",
-              border:`2px solid ${iMePaid?C.green+"55":C.red+"44"}`,
-              boxShadow:`0 4px 20px ${iMePaid?"rgba(6,214,160,0.12)":"rgba(239,35,60,0.1)"}`,
-            }}>
-              {/* Top colored strip */}
-              <div style={{background:iMePaid?`linear-gradient(135deg,${C.green},${C.greenDark})`:`linear-gradient(135deg,${C.red},#C0182C)`,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:38,height:38,borderRadius:12,background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{iMePaid?"✅":"⚠️"}</div>
-                  <div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:700,letterSpacing:0.5}}>YOUR DUES — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
-                    <div style={{fontSize:18,fontWeight:900,color:"#fff",marginTop:2}}>{iMePaid?"All paid up! 🎉":"Payment pending"}</div>
-                  </div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:24,fontWeight:900,color:"#fff"}}>{fmtI(myMonthlyAmt)}</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:600}}>this month</div>
-                </div>
-              </div>
-              {/* Bottom action area */}
-              <div style={{background:C.white,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-                <div>
-                  <div style={{fontSize:12,color:C.textSub,fontWeight:600}}>Total paid all time</div>
-                  <div style={{fontSize:15,fontWeight:900,color:C.primary,marginTop:2}}>{fmtI(allMyContribs.reduce((s,c)=>s+c.amount,0))} · {allMyContribs.length} month{allMyContribs.length!==1?"s":""}</div>
-                </div>
-                {!iMePaid&&gData.upiId&&(
-                  <button
-                    onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI copied! Pay "+fmtI(myMonthlyAmt));}}
-                    style={{...Bt(C,"p",{padding:"9px 16px",fontSize:13,borderRadius:12}),background:`linear-gradient(135deg,${C.purple},#9B59F5)`,boxShadow:"0 4px 14px rgba(123,47,190,0.3)"}}
-                    className="btn-p"
-                  >💳 Copy UPI</button>
-                )}
-                {iMePaid&&<div style={{...Pl(C,"green"),padding:"6px 14px",fontSize:12}}>✓ Paid {today.toLocaleString("default",{month:"short"})}</div>}
-              </div>
-            </div>
-          );
-        })()}
-        {/* Invite */}
-        <div style={{...K(C),border:`1.5px solid ${C.primaryMid}`,background:dark?C.white:C.primaryLight}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div><div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Invite Code</div><div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:5}}>{gData.inviteCode}</div></div>
-            <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
-          </div>
-        </div>
         {/* Monthly Target Card */}
         {(()=>{
           const monthlyAmt=gData.monthlyAmount||200;
@@ -1409,6 +1357,58 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             </div>
           );
         })()}
+        {/* My Dues Card — personal payment status */}
+        {(()=>{
+          const iMePaid = paidIds.includes(userProfile.uid);
+          const myMonthlyAmt = gData.monthlyAmount||200;
+          // Calculate how many months I have missed (unpaid months in past)
+          const allMyContribs = (gData.contributions||[]).filter(c=>c.memberId===userProfile.uid);
+          const joinedMonth = members.find(m=>m.uid===userProfile.uid)?.joinedAt ? getMK(new Date(members.find(m=>m.uid===userProfile.uid).joinedAt)) : thisMonth;
+          return(
+            <div style={{
+              borderRadius:20,marginBottom:14,overflow:"hidden",
+              border:`2px solid ${iMePaid?C.green+"55":C.red+"44"}`,
+              boxShadow:`0 4px 20px ${iMePaid?"rgba(6,214,160,0.12)":"rgba(239,35,60,0.1)"}`,
+            }}>
+              {/* Top colored strip */}
+              <div style={{background:iMePaid?`linear-gradient(135deg,${C.green},${C.greenDark})`:`linear-gradient(135deg,${C.red},#C0182C)`,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:38,height:38,borderRadius:12,background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{iMePaid?"✅":"⚠️"}</div>
+                  <div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontWeight:700,letterSpacing:0.5}}>YOUR DUES — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
+                    <div style={{fontSize:18,fontWeight:900,color:"#fff",marginTop:2}}>{iMePaid?"All paid up! 🎉":"Payment pending"}</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:24,fontWeight:900,color:"#fff"}}>{fmtI(myMonthlyAmt)}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:600}}>this month</div>
+                </div>
+              </div>
+              {/* Bottom action area */}
+              <div style={{background:C.white,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div>
+                  <div style={{fontSize:12,color:C.textSub,fontWeight:600}}>Total paid all time</div>
+                  <div style={{fontSize:15,fontWeight:900,color:C.primary,marginTop:2}}>{fmtI(allMyContribs.reduce((s,c)=>s+c.amount,0))} · {allMyContribs.length} month{allMyContribs.length!==1?"s":""}</div>
+                </div>
+                {!iMePaid&&gData.upiId&&(
+                  <button
+                    onClick={()=>{navigator.clipboard.writeText(gData.upiId);showT("UPI copied! Pay "+fmtI(myMonthlyAmt));}}
+                    style={{...Bt(C,"p",{padding:"9px 16px",fontSize:13,borderRadius:12}),background:`linear-gradient(135deg,${C.purple},#9B59F5)`,boxShadow:"0 4px 14px rgba(123,47,190,0.3)"}}
+                    className="btn-p"
+                  >💳 Copy UPI</button>
+                )}
+                {iMePaid&&<div style={{...Pl(C,"green"),padding:"6px 14px",fontSize:12}}>✓ Paid {today.toLocaleString("default",{month:"short"})}</div>}
+              </div>
+            </div>
+          );
+        })()}
+        {/* Invite */}
+        <div style={{...K(C),border:`1.5px solid ${C.primaryMid}`,background:dark?C.white:C.primaryLight}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div><div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Invite Code</div><div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:5}}>{gData.inviteCode}</div></div>
+            <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
+          </div>
+        </div>
         {/* Month dues */}
         <div style={K(C)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:800,color:C.text,fontSize:15}}>📅 {today.toLocaleString("default",{month:"long",year:"numeric"})}</div><span style={Pl(C,paidIds.length===members.length?"green":"blue")}>{paidIds.length}/{members.length} paid</span></div>
