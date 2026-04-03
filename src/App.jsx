@@ -1357,6 +1357,58 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
           </div>
         </div>
+        {/* Monthly Target Card */}
+        {(()=>{
+          const monthlyAmt=gData.monthlyAmount||200;
+          const monthlyTarget=members.length*monthlyAmt;
+          const thisMonthCollected=(gData.contributions||[]).filter(c=>c.month===thisMonth).reduce((s,c)=>s+c.amount,0);
+          const progressPct=monthlyTarget>0?Math.min(100,Math.round((thisMonthCollected/monthlyTarget)*100)):0;
+          const remaining=Math.max(0,monthlyTarget-thisMonthCollected);
+          return(
+            <div style={{borderRadius:22,marginBottom:14,overflow:"hidden",background:"linear-gradient(140deg,#0F172A 0%,#1E1B4B 55%,#162032 100%)",boxShadow:"0 16px 48px rgba(15,23,42,0.5)",position:"relative"}}>
+              <div style={{position:"absolute",top:-40,right:-30,width:160,height:160,borderRadius:"50%",background:"radial-gradient(circle,rgba(99,102,241,0.2) 0%,transparent 70%)"}}/>
+              <div style={{position:"absolute",bottom:-50,left:-20,width:140,height:140,borderRadius:"50%",background:"radial-gradient(circle,rgba(16,185,129,0.12) 0%,transparent 70%)"}}/>
+              {/* Top: Target & Collected */}
+              <div style={{padding:"22px 20px 18px",position:"relative"}}>
+                <div style={{fontSize:9,color:"rgba(99,102,241,0.8)",fontWeight:800,letterSpacing:2.5,textTransform:"uppercase",marginBottom:14}}>📅 MONTHLY TARGET — {today.toLocaleString("default",{month:"long"}).toUpperCase()}</div>
+                <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:18}}>
+                  <div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:600,marginBottom:5,letterSpacing:0.5}}>Group Target</div>
+                    <div style={{fontSize:42,fontWeight:900,color:"#fff",letterSpacing:-2,lineHeight:1}}>{fmtI(monthlyTarget)}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:6,fontWeight:500}}>{members.length} members × {fmtI(monthlyAmt)}/person</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,color:"rgba(16,185,129,0.85)",fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Collected</div>
+                    <div style={{fontSize:26,fontWeight:900,color:"#10B981",lineHeight:1}}>{fmtI(thisMonthCollected)}</div>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:5}}>{progressPct}% of target</div>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div style={{background:"rgba(255,255,255,0.08)",borderRadius:99,height:7,overflow:"hidden",marginBottom:8}}>
+                  <div style={{height:"100%",width:`${progressPct}%`,background:progressPct>=100?"linear-gradient(90deg,#10B981,#06D6A0)":"linear-gradient(90deg,#6366F1,#10B981)",borderRadius:99,transition:"width 1s ease",boxShadow:progressPct>0?"0 0 10px rgba(99,102,241,0.5)":"none"}}/>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.3)",fontWeight:600}}>{paidIds.length} of {members.length} paid</div>
+                  {remaining>0
+                    ?<div style={{fontSize:10,color:"rgba(244,63,94,0.8)",fontWeight:700}}>{fmtI(remaining)} remaining</div>
+                    :<div style={{fontSize:10,color:"rgba(16,185,129,0.9)",fontWeight:700}}>🎉 Target reached!</div>
+                  }
+                </div>
+              </div>
+              {/* Bottom: per-person amount + change button */}
+              <div style={{background:"rgba(255,255,255,0.04)",borderTop:"1px solid rgba(255,255,255,0.07)",padding:"13px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600,letterSpacing:0.5}}>PER PERSON / MONTH</div>
+                  <div style={{fontSize:20,fontWeight:900,color:"rgba(255,255,255,0.9)",marginTop:4,letterSpacing:-0.5}}>{fmtI(monthlyAmt)}</div>
+                </div>
+                <button onClick={()=>setModal("changeAmount")} style={{display:"flex",alignItems:"center",gap:7,background:"linear-gradient(135deg,rgba(99,102,241,0.3),rgba(99,102,241,0.15))",border:"1px solid rgba(99,102,241,0.4)",borderRadius:14,padding:"9px 16px",color:"rgba(255,255,255,0.9)",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",backdropFilter:"blur(8px)",transition:"all 0.2s"}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Change Amount
+                </button>
+              </div>
+            </div>
+          );
+        })()}
         {/* Month dues */}
         <div style={K(C)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div style={{fontWeight:800,color:C.text,fontSize:15}}>📅 {today.toLocaleString("default",{month:"long",year:"numeric"})}</div><span style={Pl(C,paidIds.length===members.length?"green":"blue")}>{paidIds.length}/{members.length} paid</span></div>
@@ -1682,6 +1734,55 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         </Sheet>
       );
     }
+
+    if(mtype==="changeAmount") return(
+      <Sheet title="Change Monthly Amount" emoji="📅" onClose={closeModal} C={C}>
+        <div style={{background:"linear-gradient(135deg,rgba(99,102,241,0.12),rgba(16,185,129,0.08))",borderRadius:16,padding:"16px 18px",marginBottom:20,border:`1px solid ${C.primaryMid}`}}>
+          <div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Current Monthly Amount</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontSize:36,fontWeight:900,color:C.primary,letterSpacing:-1}}>{fmtI(gData.monthlyAmount||200)}</div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:C.textSub,fontWeight:600}}>Group target</div>
+              <div style={{fontSize:18,fontWeight:900,color:C.text,marginTop:3}}>{fmtI((gData.monthlyAmount||200)*members.length)}</div>
+              <div style={{fontSize:10,color:C.muted,marginTop:2}}>{members.length} members</div>
+            </div>
+          </div>
+        </div>
+        <div style={{background:C.yellowLight,borderRadius:14,padding:"11px 15px",marginBottom:18,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>🗳️</span>
+          <div style={{fontSize:12,color:"#B37A00",fontWeight:600,lineHeight:1.5}}>This change requires group approval. All members will vote before the amount is updated.</div>
+        </div>
+        <label style={L(C)}>New Amount Per Person (₹)</label>
+        <input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center",letterSpacing:-0.5}} type="number" min="1" placeholder="e.g. 300" value={mChgAmt} onChange={e=>setMChgAmt(e.target.value)}/>
+        {mChgAmt&&Number(mChgAmt)>0&&(
+          <div style={{background:C.bg,borderRadius:16,padding:"16px 18px",marginBottom:16,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>New Group Target Preview</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:-1}}>{fmtI(Number(mChgAmt)*members.length)}</div>
+                <div style={{fontSize:11,color:C.textSub,marginTop:5}}>{members.length} members × {fmtI(Number(mChgAmt))}/person</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,color:Number(mChgAmt)>(gData.monthlyAmount||200)?C.green:C.red,fontWeight:800}}>
+                  {Number(mChgAmt)>(gData.monthlyAmount||200)?"▲":"▼"} {fmtI(Math.abs(Number(mChgAmt)-(gData.monthlyAmount||200)))}
+                </div>
+                <div style={{fontSize:10,color:C.muted,marginTop:2}}>change per person</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:10}}>
+          <button style={Bt(C,"p",{flex:1,padding:"14px"})} className="btn-p" onClick={()=>{
+            const val=Number(mChgAmt);
+            if(!val||val<=0)return showT("Enter a valid amount","error");
+            if(val===(gData.monthlyAmount||200))return showT("Same as current amount","info");
+            requestVote("monthlyAmount",{newAmount:val,title:`Change monthly amount to ${fmtI(val)}`});
+            setMChgAmt("");
+          }}>Submit for Vote 🗳️</button>
+          <button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button>
+        </div>
+      </Sheet>
+    );
 
     if(mtype==="groupSettings") return(
       <Sheet title="Group Settings" emoji="⚙️" onClose={closeModal} C={C}>
