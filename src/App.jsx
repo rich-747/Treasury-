@@ -985,6 +985,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const [editUPI,setEditUPI]=useState(false);
   const [upiVal,setUpiVal]=useState("");
   const [switcherOpen,setSwitcherOpen]=useState(false);
+  const [hamburgerOpen,setHamburgerOpen]=useState(false);
   const [votePopupOpen,setVotePopupOpen]=useState(false);
   const [votePopupShown,setVotePopupShown]=useState(false);
   const headerRef=useRef(null);
@@ -1251,12 +1252,11 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     }
   };
 
-  const tabs=[{id:"dashboard",icon:"🏠",label:"Home",color:"#6366F1"},{id:"members",icon:"👥",label:"Squad",color:"#0EA5E9"},{id:"events",icon:"🗓️",label:"Events",color:"#F59E0B"},{id:"goals",icon:"🎯",label:"Goals",color:"#8B5CF6"},{id:"txn",icon:"📒",label:"Ledger",color:"#10B981"},{id:"profile",icon:"👤",label:"Profile",color:"#F43F5E"}];
+  const tabs=[{id:"dashboard",icon:"🏠",label:"Home",color:"#6366F1"},{id:"members",icon:"👥",label:"Squad",color:"#0EA5E9"},{id:"events",icon:"🗓️",label:"Events",color:"#F59E0B"},{id:"goals",icon:"🎯",label:"Goals",color:"#8B5CF6"},{id:"txn",icon:"📒",label:"Ledger",color:"#10B981"}];
 
   // ── Tab Content ────────────────────────────────────────────────
   const tabContent=()=>{
 
-    if(tab==="profile")return<ProfileTab userProfile={userProfile} onUpdateProfile={onUpdateProfile} dark={dark} onToggleDark={onToggleDark} onBack={onBack} C={C}/>;
 
     // ── DASHBOARD ─────────────────────────────────────────────
     if(tab==="dashboard"){
@@ -1462,7 +1462,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                   style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:paid?C.bg:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:paid?C.muted:"#fff",fontSize:12,fontWeight:800,cursor:paid?"default":"pointer",fontFamily:"inherit",boxShadow:paid?"none":"0 3px 10px rgba(6,214,160,0.28)",opacity:paid?0.5:1}}
                 >{paid?"✓ Paid":"✓ Mark Paid"}</button>
                 {/* WhatsApp + Remove — only for other members, not yourself */}
-                {!isMe&&!paid&&<button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}>🟢 WhatsApp</button>}
+                {!isMe&&!paid&&<button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" style={{flexShrink:0}}><path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg> WhatsApp</button>}
                 {!isMe&&!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
                 {!isMe&&m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
                 {!isMe&&<button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>}
@@ -1802,11 +1802,37 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
               🔔{unreadBell>0&&<div style={{position:"absolute",top:4,right:4,minWidth:16,height:16,borderRadius:99,background:C.red,color:"#fff",fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",border:`2px solid ${C.white}`}}>{unreadBell>9?"9+":unreadBell}</div>}
             </button>
             {pendingCount>0&&<button onClick={()=>setVotePopupOpen(true)} style={{display:"flex",alignItems:"center",gap:5,background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,border:"none",borderRadius:99,padding:"6px 12px",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",boxShadow:"0 3px 12px rgba(16,185,129,0.35)"}} className="pulse">🗳️ {pendingCount}</button>}
-            {isAdmin&&<button onClick={()=>setModal("groupSettings")} style={{background:C.primaryLight,border:"none",borderRadius:12,padding:"7px 11px",color:C.primary,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>⚙️</button>}
+            <button onClick={()=>setHamburgerOpen(h=>!h)} style={{width:38,height:38,borderRadius:12,background:hamburgerOpen?C.primary:C.primaryLight,border:"none",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4.5,cursor:"pointer",flexShrink:0,transition:"background 0.2s"}}>
+              <span style={{display:"block",width:16,height:2,borderRadius:99,background:hamburgerOpen?"#fff":C.primary,transition:"all 0.2s",transform:hamburgerOpen?"translateY(6.5px) rotate(45deg)":"none"}}/>
+              <span style={{display:"block",width:16,height:2,borderRadius:99,background:hamburgerOpen?"#fff":C.primary,transition:"all 0.2s",opacity:hamburgerOpen?0:1}}/>
+              <span style={{display:"block",width:16,height:2,borderRadius:99,background:hamburgerOpen?"#fff":C.primary,transition:"all 0.2s",transform:hamburgerOpen?"translateY(-6.5px) rotate(-45deg)":"none"}}/>
+            </button>
           </div>
         </div>
         {switcherOpen&&<GroupSwitcher allGroups={allGroups} currentGroupId={group.id} onSwitch={onSwitchGroup} onGoToGroups={onBack} C={C} onClose={()=>setSwitcherOpen(false)}/>}
       </div>
+      {hamburgerOpen&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.55)",backdropFilter:"blur(8px)",zIndex:40,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)setHamburgerOpen(false);}}>
+          <div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -8px 60px rgba(16,185,129,0.2)"}}>
+            <div style={{position:"sticky",top:0,background:C.white,padding:"14px 22px 10px",zIndex:1}}>
+              <div style={{width:38,height:4,borderRadius:99,background:C.border,margin:"0 auto 14px"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontSize:26,lineHeight:1}}>👤</div>
+                  <div style={{fontSize:18,fontWeight:900,color:C.text}}>Profile</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {isAdmin&&<button onClick={()=>{setHamburgerOpen(false);setModal("groupSettings");}} style={{background:C.primaryLight,border:"none",borderRadius:10,padding:"6px 12px",color:C.primary,cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>⚙️ Settings</button>}
+                  <button onClick={()=>setHamburgerOpen(false)} style={{background:C.primaryLight,border:"none",borderRadius:12,width:34,height:34,cursor:"pointer",color:C.primary,fontSize:16,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                </div>
+              </div>
+            </div>
+            <div style={{padding:"0 0 8px"}}>
+              <ProfileTab userProfile={userProfile} onUpdateProfile={onUpdateProfile} dark={dark} onToggleDark={onToggleDark} onBack={()=>{setHamburgerOpen(false);onBack();}} C={C}/>
+            </div>
+          </div>
+        </div>
+      )}
       {tabContent()}
       <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -2px 24px rgba(0,0,0,0.07)"}}>
         {tabs.map(t=>{const active=tab===t.id;return(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:active?`${t.color}10`:"none",color:active?t.color:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:active?`2.5px solid ${t.color}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:active?800:600,transition:"all 0.18s"}}><span style={{fontSize:active?22:20,transition:"font-size 0.18s"}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>);})}
