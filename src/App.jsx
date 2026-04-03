@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { auth, db, messagingPromise } from "./firebase";
 import {
-  GoogleAuthProvider, signInWithPopup, signInWithPhoneNumber,
-  RecaptchaVerifier, createUserWithEmailAndPassword,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signInWithPhoneNumber, RecaptchaVerifier, createUserWithEmailAndPassword,
   signInWithEmailAndPassword, sendPasswordResetEmail, signOut,
   onAuthStateChanged, deleteUser
 } from "firebase/auth";
@@ -337,6 +337,15 @@ function AuthScreen({onAuth}){
   const [success, setSuccess] = useState("");
   const timerRef = useRef(null);
 
+  // Handle Google redirect result (mobile sign-in comes back here)
+  useEffect(()=>{
+    setLoading(true);
+    getRedirectResult(auth)
+      .then(r=>{ if(r?.user) onAuth(r.user); })
+      .catch(e=>{ if(e.code&&e.code!=="auth/no-current-user") setError("Google sign-in failed. Try again."); })
+      .finally(()=>setLoading(false));
+  },[]);
+
   // Countdown for resend
   const startResendTimer = () => {
     setResendTimer(30);
@@ -457,9 +466,17 @@ function AuthScreen({onAuth}){
 
   const handleGoogle = async () => {
     setLoading(true); setError("");
-    try{ const r = await signInWithPopup(auth, new GoogleAuthProvider()); onAuth(r.user); }
-    catch(e){ setError(e.code==="auth/popup-closed-by-user"?"Sign-in cancelled.":"Google sign-in failed. Try again."); }
-    setLoading(false);
+    const provider = new GoogleAuthProvider();
+    const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||window.innerWidth<768;
+    if(isMobile){
+      // Redirect flow — page will navigate away, result handled by getRedirectResult on return
+      try{ await signInWithRedirect(auth, provider); }
+      catch(e){ setError("Google sign-in failed. Try again."); setLoading(false); }
+    } else {
+      try{ const r = await signInWithPopup(auth, provider); onAuth(r.user); }
+      catch(e){ setError(e.code==="auth/popup-closed-by-user"?"Sign-in cancelled.":"Google sign-in failed. Try again."); }
+      setLoading(false);
+    }
   };
 
   const handleEmailAuth = async () => {
