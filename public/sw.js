@@ -1,5 +1,5 @@
 // Treasury PWA Service Worker — Network-First (always fresh)
-const CACHE = 'treasury-v3';
+const CACHE = 'treasury-v5';
 
 self.addEventListener('install', e => {
   // Activate immediately, don't wait for old SW to die
