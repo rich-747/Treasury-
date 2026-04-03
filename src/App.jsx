@@ -1440,7 +1440,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         <div style={{...K(C),border:`1.5px solid rgba(99,102,241,0.35)`,boxShadow:"0 4px 18px rgba(99,102,241,0.1)",background:dark?C.white:C.primaryLight}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div><div style={{fontSize:10,color:C.primary,fontWeight:800,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5}}>Invite Code</div><div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:5}}>{gData.inviteCode}</div></div>
-            <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: treasury-self.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
+            <button onClick={()=>{const msg=`Join "${gData.name}" 💰\nCode: ${gData.inviteCode}\nApp: squad-treasury.vercel.app`;if(navigator.share)navigator.share({title:"Join",text:msg});else{navigator.clipboard.writeText(msg);showT("Copied!");}}} style={Bt(C,"p",{padding:"10px 16px",fontSize:13})} className="btn-p">📤 Share</button>
           </div>
         </div>
         {/* Month dues */}
