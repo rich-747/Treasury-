@@ -86,7 +86,7 @@ const getC = dark => ({
 const GS = (C,dark) => `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  body{background:${C.bg};font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+  body{background:${C.bg};font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
   *{-webkit-touch-callout:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
   input,textarea,select{-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text;}
   img,svg{pointer-events:none;-webkit-user-drag:none;user-drag:none;}
@@ -947,7 +947,7 @@ function ProfileTab({userProfile,onUpdateProfile,dark,onToggleDark,onBack,C}){
 function Sheet({title,emoji,onClose,C,children,maxH="92vh"}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(13,27,75,0.55)",backdropFilter:"blur(8px)",zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px 44px",width:"100%",maxWidth:440,maxHeight:maxH,overflowY:"auto",boxShadow:"0 -8px 60px rgba(16,185,129,0.2)"}}>
+      <div className="sheet-up" style={{background:C.white,borderRadius:"28px 28px 0 0",padding:"0 22px calc(44px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:440,maxHeight:maxH,overflowY:"auto",boxShadow:"0 -8px 60px rgba(16,185,129,0.2)"}}>
         <div style={{position:"sticky",top:0,background:C.white,paddingTop:14,paddingBottom:16,zIndex:1}}>
           <div style={{width:38,height:4,borderRadius:99,background:C.border,margin:"0 auto 18px"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1160,14 +1160,17 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   // ── Computed values ────────────────────────────────────────────
   const thisMonth=getMK();
   const members=gData.members||[];
-  const maxAdmins=Math.max(2,Math.ceil(members.length*2/10));
+  const maxAdmins=Math.max(1,Math.ceil(members.length*1/10));
+  const maxCoAdmins=Math.max(2,Math.ceil(members.length*2/10));
   const required=Math.max(1,Math.ceil(members.length*2/3));
   const approvedExp=(gData.expenses||[]).filter(e=>e.status==="approved");
   const totalBal=(gData.contributions||[]).reduce((s,c)=>s+c.amount,0)-approvedExp.reduce((s,e)=>s+e.amount,0);
   const paidIds=(gData.contributions||[]).filter(c=>c.month===thisMonth).map(c=>c.memberId);
   const unpaid=members.filter(m=>!paidIds.includes(m.uid));
   const isAdmin=members.find(m=>m.uid===userProfile.uid)?.isAdmin;
+  const isCoAdmin=members.find(m=>m.uid===userProfile.uid)?.isCoAdmin;
   const currentAdmins=members.filter(m=>m.isAdmin);
+  const currentCoAdmins=members.filter(m=>m.isCoAdmin);
 
   // Unified pending votes
   const allPendingVotes=[
@@ -1226,7 +1229,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const saveUPI=async()=>{await upGroup({upiId:upiVal.trim()});setEditUPI(false);showT("UPI saved! 💳");};
   const leaveGroup=async()=>{if(!window.confirm("Leave this group?"))return;await upGroup({members:members.filter(m=>m.uid!==userProfile.uid)});onBack();};
 
-  const requestVote=(type,payload)=>{
+  const requestVote=(type,payload,sendWA=true)=>{
     const base={id:gData.nextId,requestedBy:userProfile.uid,requestedByName:userProfile.name,requestedByAvatar:userProfile.avatar,createdAt:new Date().toISOString(),approvals:[userProfile.uid],rejections:[],status:"pending"};
     const keyMap={expense:"votes",emergency:"emergencyRequests",admin:"adminVotes",removeMember:"memberRemovalVotes",goalRelease:"goalReleaseVotes",monthlyAmount:"monthlyAmountVotes"};
     const key=keyMap[type];
@@ -1236,11 +1239,11 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     showT("Vote request sent to group! 🗳️");
     closeModal();
     if(type==="emergency"){
-      openWA(`🆘 *URGENT — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* has raised an emergency fund request!\n\n💰 Amount: *${fmtI(payload.amount)}*\n📝 Reason: ${payload.reason}\n\nOpen the Treasury app to vote! ⚡`);
+      if(sendWA)openWA(`🆘 *URGENT — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* has raised an emergency fund request!\n\n💰 Amount: *${fmtI(payload.amount)}*\n📝 Reason: ${payload.reason}\n\nOpen the Treasury app to vote! ⚡`);
       sendPush(`🆘 Emergency Request — ${gData.name}`,`${userProfile.name} needs ${fmtI(payload.amount)} urgently! Open app to vote.`);
     }
     if(type==="expense"){
-      openWA(`🗳️ *New Expense Vote — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* requested an expense:\n\n💸 *${payload.title}* — ${fmtI(payload.amount)}\n📂 ${payload.category||"Other"}\n\nOpen the Treasury app to approve or reject! 👍👎`);
+      if(sendWA)openWA(`🗳️ *New Expense Vote — ${gData.name}*\n\n${userProfile.avatar} *${userProfile.name}* requested an expense:\n\n💸 *${payload.title}* — ${fmtI(payload.amount)}\n📂 ${payload.category||"Other"}\n\nOpen the Treasury app to approve or reject! 👍👎`);
       sendPush(`🗳️ Vote Required — ${gData.name}`,`${userProfile.name} requested ${payload.title} for ${fmtI(payload.amount)}`);
     }
     if(type==="monthlyAmount"){
@@ -1264,7 +1267,13 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
     if(item.status==="approved"){
       if(voteType==="expense"){const expenses=gData.expenses||[];if(!expenses.find(e=>e.voteId===voteId))extra={expenses:[...expenses,{id:(gData.nextId||100)+1,voteId,title:item.title,amount:item.amount,category:item.category||"Other",date:new Date().toISOString(),status:"approved"}]};}
       if(voteType==="emergency"){const expenses=gData.expenses||[];if(!expenses.find(e=>e.emergencyId===voteId))extra={expenses:[...expenses,{id:(gData.nextId||100)+1,emergencyId:voteId,title:`🆘 ${item.reason}`,amount:item.amount,category:"Emergency",date:new Date().toISOString(),status:"approved"}]};}
-      if(voteType==="admin"){extra={members:members.map(m=>m.uid===item.nomineeUid?{...m,isAdmin:!item.isRemoval}:m)};}
+      if(voteType==="admin"){
+        if(item.isCoAdmin){
+          extra={members:members.map(m=>m.uid===item.nomineeUid?{...m,isCoAdmin:!item.isRemoval}:m)};
+        }else{
+          extra={members:members.map(m=>m.uid===item.nomineeUid?{...m,isAdmin:!item.isRemoval}:m)};
+        }
+      }
       if(voteType==="removeMember"){extra={members:members.filter(m=>m.uid!==item.targetUid)};}
       if(voteType==="goalRelease"){const goals=(gData.savingsGoals||[]).map(g=>g.id===item.goalId?{...g,contributions:[...g.contributions,{amount:item.amount,date:new Date().toISOString(),by:"group",byName:"Group Vote"}]}:g);const expenses=gData.expenses||[];extra={savingsGoals:goals,expenses:[...expenses,{id:(gData.nextId||100)+1,goalReleaseId:voteId,title:`🎯 ${item.goalTitle}`,amount:item.amount,category:"Goal",date:new Date().toISOString(),status:"approved"}]};}
       if(voteType==="monthlyAmount"){extra={monthlyAmount:item.newAmount};}
@@ -1521,12 +1530,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
               <div style={{position:"relative",flexShrink:0}}>
                 <div style={{width:46,height:46,borderRadius:15,background:bgs[i%bgs.length],display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,border:`2px solid ${C.border}`}}>{m.avatar}</div>
                 {m.isAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#FFD84D",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`}}>👑</div>}
+                {!m.isAdmin&&m.isCoAdmin&&<div style={{position:"absolute",bottom:-3,right:-3,background:"#C0C0C0",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,border:`2px solid ${C.white}`}}>🛡️</div>}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                   <span style={{fontWeight:800,color:C.text,fontSize:15}}>{m.name}</span>
                   {isMe&&<span style={{fontSize:10,fontWeight:800,color:C.greenDark,background:C.greenLight,padding:"2px 8px",borderRadius:99}}>YOU</span>}
                   {m.isAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#B37A00",background:C.yellowLight,padding:"2px 8px",borderRadius:99}}>ADMIN</span>}
+                  {!m.isAdmin&&m.isCoAdmin&&<span style={{fontSize:10,fontWeight:800,color:"#6B7280",background:C.bg,padding:"2px 8px",borderRadius:99,border:`1px solid ${C.border}`}}>CO-ADMIN</span>}
                 </div>
                 <div style={{fontSize:11,color:C.muted,marginTop:3,fontWeight:600}}>{fmtI(total)} total · {months} month{months!==1?"s":""}</div>
                 {/* Pending amount row */}
@@ -1544,19 +1555,22 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
                 </div>
               </div>
             </div>
-            {isAdmin&&(
+            {(isAdmin||isCoAdmin)&&(
               <div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:10,borderTop:`1px solid ${C.border}`}}>
-                {/* Mark Paid — always visible for admin, greyed out if already paid */}
+                {/* Mark Paid — visible for admin and co-admin */}
                 <button
                   onClick={()=>markPaid(m.uid)}
                   disabled={paid}
                   style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"none",background:paid?C.bg:`linear-gradient(135deg,${C.green},${C.greenDark})`,color:paid?C.muted:"#fff",fontSize:12,fontWeight:800,cursor:paid?"default":"pointer",fontFamily:"inherit",boxShadow:paid?"none":"0 3px 10px rgba(6,214,160,0.28)",opacity:paid?0.5:1}}
                 >{paid?"✓ Paid":"✓ Mark Paid"}</button>
-                {/* WhatsApp + Remove — only for other members, not yourself */}
+                {/* WhatsApp notify — visible for admin and co-admin */}
                 {!isMe&&!paid&&<button onClick={()=>notifyMember(m)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:"1.5px solid #25D36644",background:"#E8FFF1",color:"#128C7E",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 2px 8px rgba(37,211,102,0.2)"}}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" style={{flexShrink:0}}><path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg> WhatsApp</button>}
-                {!isMe&&!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
-                {!isMe&&m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
-                {!isMe&&<button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>}
+                {/* Admin-only: Make/Remove Admin, Make/Remove Co-Admin, Remove Member */}
+                {isAdmin&&!isMe&&!m.isAdmin&&currentAdmins.length<maxAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,isCoAdmin:false,title:`Make ${m.name} admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.purple}44`,background:C.purpleLight,color:C.purple,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑 Make Admin</button>}
+                {isAdmin&&!isMe&&m.isAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,isCoAdmin:false,title:`Remove ${m.name} as admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>👑✕ Remove Admin</button>}
+                {isAdmin&&!isMe&&!m.isCoAdmin&&!m.isAdmin&&currentCoAdmins.length<maxCoAdmins&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:false,isCoAdmin:true,title:`Make ${m.name} co-admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.sky}44`,background:C.skyLight,color:C.sky,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>🛡️ Make Co-Admin</button>}
+                {isAdmin&&!isMe&&m.isCoAdmin&&<button onClick={()=>requestVote("admin",{nomineeUid:m.uid,nominatedByName:userProfile.name,isRemoval:true,isCoAdmin:true,title:`Remove ${m.name} as co-admin`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>🛡️✕ Remove Co-Admin</button>}
+                {isAdmin&&!isMe&&<button onClick={()=>requestVote("removeMember",{targetUid:m.uid,targetName:m.name,title:`Remove ${m.name} from group`})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:10,border:`1.5px solid ${C.red}33`,background:C.redLight,color:C.red,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginLeft:"auto"}}>✕ Remove</button>}
               </div>
             )}
           </div>);
@@ -1702,14 +1716,28 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
           <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>{CATS.map(c=><button key={c} onClick={()=>setMExpF({...mExpF,category:c})} style={{padding:"7px 14px",borderRadius:10,border:`1.5px solid ${mExpF.category===c?C.primary:C.border}`,background:mExpF.category===c?C.primaryLight:C.bg,color:mExpF.category===c?C.primary:C.textSub,fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{c}</button>)}</div>
           <button style={Bt(C,"p",{width:"100%",padding:"13px"})} className="btn-p" onClick={()=>{if(mExpF.title)setMExpStep(2);}}>Next →</button>
         </>}
-        {mExpStep===2&&<>
-          <div style={{background:C.greenLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.greenDark,fontWeight:600}}>✓ "{mExpF.title}" · {mExpF.category}</div>
-          <label style={L(C)}>Amount (₹)</label>
-          <input style={{...I(C),fontSize:24,fontWeight:900,textAlign:"center"}} type="number" placeholder="0" value={mExpF.amount} onChange={e=>setMExpF({...mExpF,amount:e.target.value})}/>
-          <label style={L(C)}>Description (optional)</label>
-          <textarea style={{...I(C),height:80,resize:"none"}} placeholder="More details..." value={mExpF.description} onChange={e=>setMExpF({...mExpF,description:e.target.value})}/>
-          <div style={{display:"flex",gap:10}}><button style={Bt(C,"gh",{padding:"13px 16px"})} onClick={()=>setMExpStep(1)}>← Back</button><button style={Bt(C,"p",{flex:1,padding:"13px"})} className="btn-p" onClick={()=>{if(mExpF.amount&&Number(mExpF.amount)>0)requestVote("expense",{title:mExpF.title,amount:Number(mExpF.amount),category:mExpF.category,description:mExpF.description});}}>Send for Vote 🗳️</button></div>
-        </>}
+        {mExpStep===2&&(()=>{
+          const amt=Number(mExpF.amount)||0;
+          const overBal=amt>totalBal;
+          const expPayload={title:mExpF.title,amount:amt,category:mExpF.category,description:mExpF.description};
+          return(<>
+            <div style={{background:C.greenLight,borderRadius:14,padding:"12px 16px",marginBottom:14,fontSize:13,color:C.greenDark,fontWeight:600}}>✓ "{mExpF.title}" · {mExpF.category}</div>
+            <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:C.textSub,fontWeight:600}}>Wallet Balance</span><span style={{fontSize:15,fontWeight:900,color:C.greenDark}}>{fmtI(totalBal)}</span></div>
+            <label style={L(C)}>Amount (₹)</label>
+            <input style={{...I(C),fontSize:24,fontWeight:900,textAlign:"center",borderColor:overBal?C.red:undefined}} type="number" placeholder="0" value={mExpF.amount} onChange={e=>setMExpF({...mExpF,amount:e.target.value})}/>
+            {overBal&&<div style={{background:C.redLight,borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:12,color:C.red,fontWeight:700}}>⚠️ Amount exceeds wallet balance of {fmtI(totalBal)}</div>}
+            <label style={L(C)}>Description (optional)</label>
+            <textarea style={{...I(C),height:80,resize:"none"}} placeholder="More details..." value={mExpF.description} onChange={e=>setMExpF({...mExpF,description:e.target.value})}/>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button style={Bt(C,"gh",{padding:"13px 16px",flexShrink:0})} onClick={()=>setMExpStep(1)}>← Back</button>
+              <button style={Bt(C,"p",{flex:1,padding:"13px",fontSize:13,opacity:(!mExpF.amount||amt<=0||overBal)?0.5:1})} className="btn-p" onClick={()=>{if(mExpF.amount&&amt>0&&!overBal)requestVote("expense",expPayload,false);}}>Send for Vote 🗳️</button>
+              <button style={{...Bt(C,"gh",{padding:"13px 14px",fontSize:13,flexShrink:0,border:`1.5px solid #25D36644`,color:"#128C7E",background:"#E8FFF1",opacity:(!mExpF.amount||amt<=0||overBal)?0.5:1})}} onClick={()=>{if(mExpF.amount&&amt>0&&!overBal)requestVote("expense",expPayload,true);}}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" style={{flexShrink:0}}><path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                Via WhatsApp
+              </button>
+            </div>
+          </>);
+        })()}
       </Sheet>
     );
 
@@ -1923,9 +1951,9 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
 
   // ── Render ─────────────────────────────────────────────────────
   return(
-    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:80}}>
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"'Inter',sans-serif",maxWidth:440,margin:"0 auto",paddingBottom:"calc(80px + env(safe-area-inset-bottom, 0px))"}}>
       <style>{GS(C,dark)}</style>
-      <div ref={headerRef} style={{background:C.white,borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 20px rgba(16,185,129,0.07)"}}>
+      <div ref={headerRef} style={{background:C.white,borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,zIndex:10,boxShadow:"0 2px 20px rgba(16,185,129,0.07)",paddingTop:"env(safe-area-inset-top, 0px)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 16px 11px"}}>
           <button onClick={()=>setSwitcherOpen(s=>!s)} style={{display:"flex",alignItems:"center",gap:10,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",padding:0,flex:1,minWidth:0,textAlign:"left"}}>
             <div style={{position:"relative",flexShrink:0}}>
@@ -1974,7 +2002,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         </div>
       )}
       {tabContent()}
-      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -2px 24px rgba(0,0,0,0.07)"}}>
+      <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:C.white,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:20,boxShadow:"0 -2px 24px rgba(0,0,0,0.07)",paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
         {tabs.map(t=>{const active=tab===t.id;return(<button key={t.id} className="nav-btn" onClick={()=>{setTab(t.id);setSwitcherOpen(false);}} style={{flex:1,padding:"10px 2px 8px",border:"none",background:active?`${t.color}10`:"none",color:active?t.color:C.muted,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:active?`2.5px solid ${t.color}`:"2.5px solid transparent",fontFamily:"inherit",fontWeight:active?800:600,transition:"all 0.18s"}}><span style={{fontSize:active?22:20,transition:"font-size 0.18s"}}>{t.icon}</span><span style={{fontSize:9,letterSpacing:-0.2}}>{t.label}</span></button>);})}
       </nav>
       {renderModal()}
