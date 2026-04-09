@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { auth, db, messagingPromise } from "./firebase";
+import { auth, db, storage, messagingPromise } from "./firebase";
 import {
   GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
   signInWithPhoneNumber, RecaptchaVerifier, createUserWithEmailAndPassword,
@@ -8,8 +8,9 @@ import {
 } from "firebase/auth";
 import {
   doc, setDoc, getDoc, collection, addDoc, onSnapshot,
-  updateDoc, arrayUnion, serverTimestamp, query, where, getDocs, deleteDoc
+  updateDoc, arrayUnion, serverTimestamp, query, where, orderBy, limit, getDocs, deleteDoc
 } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 
 // ── FCM VAPID key — get from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
@@ -34,6 +35,14 @@ const EVENT_TYPES = [
   {v:"food",l:"🍕 Food & Drinks",icon:"🍕",color:"#EF233C"},
   {v:"other",l:"📅 Other",icon:"📅",color:"#5A6A8A"},
 ];
+const CHAT_EMOJIS = [
+  "😀","😂","😍","🥰","😎","🤩","😅","🤣","😭","😱","👍","👎","❤️","🔥","🎉",
+  "✅","💯","🙏","👏","💪","😴","😤","🥳","🤗","😇","🤔","💀","🫡","😬","🥺",
+  "😋","🤭","🫂","😜","🤪","🥴","🤯","😡","🤬","😡","🥶","🫠","💩","👻","🤡",
+  "🎯","🚀","💸","🏆","⭐","💡","📢","🎵","🍕","🏏","🌟","🙌","👀","💥","✨",
+  "🎊","🎈","🌈","❄️","☀️","🌙","⚡","🌺","🍀","🎲","🎸","🏄","🤸","🧘","🎃",
+];
+
 const COUNTRY_CODES = [
   {code:"+91",flag:"🇮🇳",name:"India"},
   {code:"+1",flag:"🇺🇸",name:"USA"},
@@ -993,6 +1002,328 @@ function GroupSwitcher({allGroups,currentGroupId,onSwitch,onGoToGroups,C,onClose
 //  MAIN TREASURY APP
 // ══════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════
+//  CHAT PANEL
+// ══════════════════════════════════════════════════════════════════
+function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose}){
+  const [msgs,setMsgs]=useState([]);
+  const [input,setInput]=useState("");
+  const [emojiOpen,setEmojiOpen]=useState(false);
+  const [uploading,setUploading]=useState(false);
+  const [dragX,setDragX]=useState(0);
+  const [dragging,setDragging]=useState(false);
+  const [lastSeen,setLastSeen]=useState(0);
+  const touchStartX=useRef(0);
+  const touchStartY=useRef(0);
+  const listRef=useRef(null);
+  const imgRef=useRef(null);
+  const handleRef=useRef(null);
+  const panelRef=useRef(null);
+  const panelW=typeof window!=="undefined"?Math.min(window.innerWidth,440):440;
+
+  // ── Messages listener ──────────────────────────────────────────
+  useEffect(()=>{
+    const q=query(collection(db,"groups",groupId,"messages"),orderBy("createdAt","asc"),limit(200));
+    const unsub=onSnapshot(q,snap=>{setMsgs(snap.docs.map(d=>({id:d.id,...d.data()})));});
+    return()=>unsub();
+  },[groupId]);
+
+  // ── Auto-scroll & mark seen ────────────────────────────────────
+  useEffect(()=>{
+    if(isOpen){
+      setTimeout(()=>{if(listRef.current)listRef.current.scrollTop=listRef.current.scrollHeight;},60);
+      setLastSeen(msgs.length);
+    }
+  },[isOpen]);
+  useEffect(()=>{
+    if(isOpen&&listRef.current)listRef.current.scrollTop=listRef.current.scrollHeight;
+  },[msgs]);
+  const unread=Math.max(0,msgs.length-lastSeen);
+
+  // ── Send text ──────────────────────────────────────────────────
+  const sendMsg=async()=>{
+    const text=input.trim();
+    if(!text)return;
+    setInput("");setEmojiOpen(false);
+    await addDoc(collection(db,"groups",groupId,"messages"),{
+      uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,
+      text,imageUrl:null,createdAt:serverTimestamp(),type:"text",
+    });
+  };
+
+  // ── Send image ─────────────────────────────────────────────────
+  const sendImg=async file=>{
+    if(!file)return;
+    setUploading(true);
+    try{
+      const sRef=storageRef(storage,`chat/${groupId}/${Date.now()}_${file.name}`);
+      await uploadBytes(sRef,file);
+      const url=await getDownloadURL(sRef);
+      await addDoc(collection(db,"groups",groupId,"messages"),{
+        uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,
+        text:"",imageUrl:url,createdAt:serverTimestamp(),type:"image",
+      });
+    }catch(e){console.error("Image upload failed:",e);}
+    setUploading(false);
+  };
+
+  // ── Non-passive touch handlers (for drag-to-open) ─────────────
+  useEffect(()=>{
+    const handle=handleRef.current;
+    const panel=panelRef.current;
+    if(!handle||!panel)return;
+
+    let sX=0,sY=0,active=false;
+
+    const hTStart=e=>{sX=e.touches[0].clientX;sY=e.touches[0].clientY;active=true;};
+    const hTMove=e=>{
+      if(!active)return;
+      const dx=e.touches[0].clientX-sX;
+      const dy=Math.abs(e.touches[0].clientY-sY);
+      if(dy>50){active=false;return;}
+      if(dx>0&&!isOpen){e.preventDefault();setDragX(Math.min(dx,panelW));}
+    };
+    const hTEnd=()=>{
+      if(active){setDragX(v=>{if(v>65)onOpen();return 0;});}
+      active=false;
+    };
+
+    const pTStart=e=>{sX=e.touches[0].clientX;active=true;};
+    const pTMove=e=>{
+      if(!active||!isOpen)return;
+      const dx=e.touches[0].clientX-sX;
+      if(dx<0){e.preventDefault();setDragX(Math.max(dx,-panelW));}
+    };
+    const pTEnd=()=>{
+      if(active){setDragX(v=>{if(v<-65)onClose();return 0;});}
+      active=false;
+    };
+
+    handle.addEventListener("touchstart",hTStart,{passive:true});
+    handle.addEventListener("touchmove",hTMove,{passive:false});
+    handle.addEventListener("touchend",hTEnd,{passive:true});
+    panel.addEventListener("touchstart",pTStart,{passive:true});
+    panel.addEventListener("touchmove",pTMove,{passive:false});
+    panel.addEventListener("touchend",pTEnd,{passive:true});
+    return()=>{
+      handle.removeEventListener("touchstart",hTStart);
+      handle.removeEventListener("touchmove",hTMove);
+      handle.removeEventListener("touchend",hTEnd);
+      panel.removeEventListener("touchstart",pTStart);
+      panel.removeEventListener("touchmove",pTMove);
+      panel.removeEventListener("touchend",pTEnd);
+    };
+  },[isOpen,panelW,onOpen,onClose]);
+
+  const panelTranslate=isOpen?Math.min(0,Math.max(dragX,-panelW)):Math.min(Math.max(dragX-panelW,-panelW),0);
+  const backdropOpacity=isOpen?Math.max(0,1+dragX/panelW):Math.min(dragX/panelW,1);
+
+  return(
+    <>
+      {/* ── Drag Handle ──────────────────────────────────────────── */}
+      <div
+        ref={handleRef}
+        onClick={()=>isOpen?onClose():onOpen()}
+        style={{
+          position:"fixed",left:0,top:"50%",
+          transform:"translateY(-50%)",
+          zIndex:30,display:"flex",flexDirection:"column",alignItems:"center",
+          background:`linear-gradient(160deg,${C.primary},${C.primaryDark})`,
+          borderRadius:"0 18px 18px 0",padding:"16px 10px 14px",gap:6,
+          cursor:"pointer",
+          boxShadow:"3px 0 24px rgba(99,102,241,0.45)",
+          userSelect:"none",WebkitUserSelect:"none",
+          touchAction:"pan-y",
+        }}
+      >
+        {/* Chat bubble icon */}
+        <span style={{fontSize:20,lineHeight:1}}>💬</span>
+        {/* Unread badge */}
+        {unread>0&&(
+          <div style={{
+            background:"#F43F5E",borderRadius:99,minWidth:18,height:18,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:9,fontWeight:900,color:"#fff",padding:"0 4px",
+            border:"2px solid #fff",position:"absolute",top:8,right:-4,
+          }}>{unread>9?"9+":unread}</div>
+        )}
+        {/* Grip dots */}
+        <div style={{display:"flex",flexDirection:"column",gap:3,margin:"2px 0"}}>
+          {[0,1,2].map(i=>(
+            <div key={i} style={{width:3,height:3,borderRadius:"50%",background:"rgba(255,255,255,0.5)"}}/>
+          ))}
+        </div>
+        {/* Arrow chevron — flips when open */}
+        <svg width="13" height="11" viewBox="0 0 13 11" fill="none"
+          style={{transform:isOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.35s cubic-bezier(0.22,1,0.36,1)"}}>
+          <path d="M1 5.5h11M7 1.5l4 4-4 4" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+
+      {/* ── Backdrop ─────────────────────────────────────────────── */}
+      {(isOpen||dragX!==0)&&(
+        <div
+          onClick={onClose}
+          style={{
+            position:"fixed",inset:0,
+            background:`rgba(13,27,75,${0.52*backdropOpacity})`,
+            backdropFilter:`blur(${4*backdropOpacity}px)`,
+            zIndex:28,
+            pointerEvents:isOpen?"auto":"none",
+            transition:dragging?"none":"background 0.32s,backdrop-filter 0.32s",
+          }}
+        />
+      )}
+
+      {/* ── Chat Panel ───────────────────────────────────────────── */}
+      <div
+        ref={panelRef}
+        style={{
+          position:"fixed",top:0,left:0,
+          width:panelW,height:"100dvh",minHeight:"100vh",
+          background:C.bg,zIndex:29,
+          display:"flex",flexDirection:"column",
+          transform:`translateX(${panelTranslate}px)`,
+          transition:dragging?"none":"transform 0.34s cubic-bezier(0.22,1,0.36,1)",
+          boxShadow:"10px 0 60px rgba(99,102,241,0.18)",
+          willChange:"transform",overflowY:"hidden",
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,
+          paddingTop:"calc(16px + env(safe-area-inset-top, 0px))",
+          paddingBottom:16,paddingLeft:20,paddingRight:16,
+          display:"flex",alignItems:"center",gap:12,flexShrink:0,
+          boxShadow:"0 4px 20px rgba(99,102,241,0.25)",
+        }}>
+          <div style={{width:44,height:44,borderRadius:15,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,border:"1.5px solid rgba(255,255,255,0.25)"}}>💬</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:900,color:"#fff",fontSize:17,letterSpacing:-0.3}}>Group Chat</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.68)",fontWeight:600,marginTop:1}}>{msgs.length} message{msgs.length!==1?"s":""} · swipe left to close</div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.28)",borderRadius:13,width:36,height:36,cursor:"pointer",color:"#fff",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800}}>✕</button>
+        </div>
+
+        {/* Messages list */}
+        <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"14px 14px 6px",display:"flex",flexDirection:"column",gap:10,WebkitOverflowScrolling:"touch"}}>
+          {msgs.length===0&&(
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"80px 20px",textAlign:"center"}}>
+              <div style={{fontSize:60,lineHeight:1}}>💬</div>
+              <div style={{fontWeight:900,color:C.text,fontSize:17}}>Start the conversation!</div>
+              <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Say hello, share updates,<br/>drop an emoji or a photo 📷</div>
+            </div>
+          )}
+          {msgs.map((msg,idx)=>{
+            const isMe=msg.uid===userProfile.uid;
+            const prevMsg=msgs[idx-1];
+            const showAvatar=!isMe&&(!prevMsg||prevMsg.uid!==msg.uid);
+            const showName=!isMe&&showAvatar;
+            const ts=msg.createdAt?.toDate?fmtDT(msg.createdAt.toDate().toISOString()):"";
+            return(
+              <div key={msg.id} style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,alignItems:"flex-end",marginTop:showAvatar&&!isMe?6:0}}>
+                {/* Avatar — only for others, only on first consecutive msg */}
+                {!isMe&&(
+                  <div style={{width:32,height:32,borderRadius:11,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,visibility:showAvatar?"visible":"hidden"}}>{msg.avatar}</div>
+                )}
+                <div style={{maxWidth:"74%",minWidth:50}}>
+                  {showName&&<div style={{fontSize:10,color:C.textSub,fontWeight:700,marginBottom:4,paddingLeft:4}}>{msg.name}</div>}
+                  <div style={{
+                    background:isMe?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:C.white,
+                    color:isMe?"#fff":C.text,
+                    borderRadius:isMe?"18px 18px 5px 18px":"18px 18px 18px 5px",
+                    padding:msg.type==="image"?"5px":"10px 14px",
+                    border:isMe?"none":`1px solid ${C.border}`,
+                    fontSize:14,lineHeight:1.55,wordBreak:"break-word",
+                    boxShadow:isMe?"0 3px 14px rgba(99,102,241,0.28)":"0 1px 5px rgba(0,0,0,0.06)",
+                    overflowWrap:"anywhere",
+                  }}>
+                    {msg.type==="image"&&msg.imageUrl&&(
+                      <img src={msg.imageUrl} alt="shared" style={{width:"100%",borderRadius:14,display:"block",maxHeight:260,objectFit:"cover"}}/>
+                    )}
+                    {msg.text&&<span style={{whiteSpace:"pre-wrap"}}>{msg.text}</span>}
+                  </div>
+                  {ts&&<div style={{fontSize:10,color:C.muted,marginTop:4,textAlign:isMe?"right":"left",paddingLeft:4,paddingRight:4}}>{ts}</div>}
+                </div>
+              </div>
+            );
+          })}
+          {uploading&&(
+            <div style={{display:"flex",justifyContent:"flex-end",gap:8,alignItems:"flex-end"}}>
+              <div style={{background:C.primaryLight,borderRadius:"18px 18px 5px 18px",padding:"12px 16px",display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.primary,fontWeight:600}}>
+                <Spin size={14} color={C.primary}/> Uploading image...
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Emoji Picker */}
+        {emojiOpen&&(
+          <div style={{background:C.white,borderTop:`1.5px solid ${C.border}`,padding:"10px 12px",display:"flex",flexWrap:"wrap",gap:3,maxHeight:175,overflowY:"auto",flexShrink:0}}>
+            {CHAT_EMOJIS.map(e=>(
+              <button key={e} onClick={()=>setInput(v=>v+e)} style={{fontSize:23,padding:"5px 4px",background:"none",border:"none",cursor:"pointer",borderRadius:8,lineHeight:1,flexShrink:0}}>{e}</button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Bar */}
+        <div style={{
+          background:C.white,borderTop:`1px solid ${C.border}`,
+          padding:"10px 12px",
+          paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",
+          display:"flex",alignItems:"flex-end",gap:8,flexShrink:0,
+        }}>
+          <input ref={imgRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
+            onChange={e=>{if(e.target.files[0])sendImg(e.target.files[0]);e.target.value="";}}
+          />
+          {/* Image button */}
+          <button onClick={()=>imgRef.current?.click()} disabled={uploading}
+            style={{width:40,height:40,borderRadius:13,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,cursor:"pointer",flexShrink:0,opacity:uploading?0.5:1,transition:"opacity 0.2s"}}
+          >📷</button>
+          {/* Emoji toggle */}
+          <button onClick={()=>setEmojiOpen(o=>!o)}
+            style={{width:40,height:40,borderRadius:13,background:emojiOpen?C.primaryLight:C.bg,border:`1.5px solid ${emojiOpen?C.primary:C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,cursor:"pointer",flexShrink:0,transition:"all 0.18s"}}
+          >😊</button>
+          {/* Text input */}
+          <div style={{flex:1,background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:22,padding:"9px 16px",minHeight:40,display:"flex",alignItems:"center"}}>
+            <textarea
+              value={input}
+              onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}}}
+              placeholder="Message..."
+              rows={1}
+              style={{
+                width:"100%",background:"none",border:"none",outline:"none",
+                resize:"none",fontSize:14,color:C.text,
+                fontFamily:"'Inter',sans-serif",lineHeight:1.5,
+                display:"block",WebkitUserSelect:"text",userSelect:"text",
+                maxHeight:88,overflowY:"auto",
+              }}
+            />
+          </div>
+          {/* Send button */}
+          <button
+            onClick={sendMsg}
+            disabled={!input.trim()}
+            style={{
+              width:44,height:44,borderRadius:"50%",border:"none",
+              background:input.trim()?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:C.primaryMid,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:input.trim()?"pointer":"default",flexShrink:0,
+              transition:"all 0.18s",
+              boxShadow:input.trim()?"0 4px 16px rgba(99,102,241,0.42)":"none",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M16.5 1.5L8.5 9.5M16.5 1.5L11 16.5L8.5 9.5M16.5 1.5L1.5 6.5L8.5 9.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  MAIN TREASURY APP
 // ══════════════════════════════════════════════════════════════════
 function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpdateProfile,dark,onToggleDark}){
@@ -1029,6 +1360,7 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
   const [mSearch,setMSearch]=useState("");
   const [mFilterMonth,setMFilterMonth]=useState("all");
   const [mFilterType,setMFilterType]=useState("all");
+  const [chatOpen,setChatOpen]=useState(false);
 
   useEffect(()=>{const h=e=>{if(headerRef.current&&!headerRef.current.contains(e.target))setSwitcherOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
@@ -1815,39 +2147,62 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
             </div>
           </div>
         </div>
-        <div style={{background:C.yellowLight,borderRadius:14,padding:"11px 15px",marginBottom:18,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:18}}>🗳️</span>
-          <div style={{fontSize:12,color:"#B37A00",fontWeight:600,lineHeight:1.5}}>This change requires group approval. All members will vote before the amount is updated.</div>
-        </div>
-        <label style={L(C)}>New Amount Per Person (₹)</label>
-        <input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center",letterSpacing:-0.5}} type="number" min="1" placeholder="e.g. 300" value={mChgAmt} onChange={e=>setMChgAmt(e.target.value)}/>
-        {mChgAmt&&Number(mChgAmt)>0&&(
-          <div style={{background:C.bg,borderRadius:16,padding:"16px 18px",marginBottom:16,border:`1px solid ${C.border}`}}>
-            <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>New Group Target Preview</div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div>
-                <div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:-1}}>{fmtI(Number(mChgAmt)*members.length)}</div>
-                <div style={{fontSize:11,color:C.textSub,marginTop:5}}>{members.length} members × {fmtI(Number(mChgAmt))}/person</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontSize:11,color:Number(mChgAmt)>(gData.monthlyAmount||200)?C.green:C.red,fontWeight:800}}>
-                  {Number(mChgAmt)>(gData.monthlyAmount||200)?"▲":"▼"} {fmtI(Math.abs(Number(mChgAmt)-(gData.monthlyAmount||200)))}
-                </div>
-                <div style={{fontSize:10,color:C.muted,marginTop:2}}>change per person</div>
+        {unpaid.length>0?(
+          <div style={{background:C.redLight,border:`1.5px solid ${C.red}33`,borderRadius:16,padding:"18px 16px",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:10}}>🔒</div>
+            <div style={{fontWeight:900,color:C.red,fontSize:15,marginBottom:8}}>All members must pay first</div>
+            <div style={{fontSize:13,color:C.textSub,lineHeight:1.6,marginBottom:14}}>
+              The monthly amount can only be changed once everyone has paid their contribution for this month.
+            </div>
+            <div style={{background:C.white,borderRadius:12,padding:"10px 14px",marginBottom:10}}>
+              <div style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Pending payments</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
+                {unpaid.map(m=>(
+                  <span key={m.uid} style={{fontSize:12,fontWeight:700,background:C.redLight,color:C.red,padding:"4px 10px",borderRadius:99}}>
+                    {m.avatar} {m.name}
+                  </span>
+                ))}
               </div>
             </div>
+            <button style={Bt(C,"gh",{width:"100%",marginTop:4})} onClick={closeModal}>Close</button>
           </div>
+        ):(
+          <>
+            <div style={{background:C.yellowLight,borderRadius:14,padding:"11px 15px",marginBottom:18,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:18}}>🗳️</span>
+              <div style={{fontSize:12,color:"#B37A00",fontWeight:600,lineHeight:1.5}}>This change requires group approval. All members will vote before the amount is updated.</div>
+            </div>
+            <label style={L(C)}>New Amount Per Person (₹)</label>
+            <input style={{...I(C),fontSize:22,fontWeight:900,textAlign:"center",letterSpacing:-0.5}} type="number" min="1" placeholder="e.g. 300" value={mChgAmt} onChange={e=>setMChgAmt(e.target.value)}/>
+            {mChgAmt&&Number(mChgAmt)>0&&(
+              <div style={{background:C.bg,borderRadius:16,padding:"16px 18px",marginBottom:16,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:10}}>New Group Target Preview</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:28,fontWeight:900,color:C.text,letterSpacing:-1}}>{fmtI(Number(mChgAmt)*members.length)}</div>
+                    <div style={{fontSize:11,color:C.textSub,marginTop:5}}>{members.length} members × {fmtI(Number(mChgAmt))}/person</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:11,color:Number(mChgAmt)>(gData.monthlyAmount||200)?C.green:C.red,fontWeight:800}}>
+                      {Number(mChgAmt)>(gData.monthlyAmount||200)?"▲":"▼"} {fmtI(Math.abs(Number(mChgAmt)-(gData.monthlyAmount||200)))}
+                    </div>
+                    <div style={{fontSize:10,color:C.muted,marginTop:2}}>change per person</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:10}}>
+              <button style={Bt(C,"p",{flex:1,padding:"14px"})} className="btn-p" onClick={()=>{
+                const val=Number(mChgAmt);
+                if(!val||val<=0)return showT("Enter a valid amount","error");
+                if(val===(gData.monthlyAmount||200))return showT("Same as current amount","info");
+                requestVote("monthlyAmount",{newAmount:val,title:`Change monthly amount to ${fmtI(val)}`});
+                setMChgAmt("");
+              }}>Submit for Vote 🗳️</button>
+              <button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button>
+            </div>
+          </>
         )}
-        <div style={{display:"flex",gap:10}}>
-          <button style={Bt(C,"p",{flex:1,padding:"14px"})} className="btn-p" onClick={()=>{
-            const val=Number(mChgAmt);
-            if(!val||val<=0)return showT("Enter a valid amount","error");
-            if(val===(gData.monthlyAmount||200))return showT("Same as current amount","info");
-            requestVote("monthlyAmount",{newAmount:val,title:`Change monthly amount to ${fmtI(val)}`});
-            setMChgAmt("");
-          }}>Submit for Vote 🗳️</button>
-          <button style={Bt(C,"gh")} onClick={closeModal}>Cancel</button>
-        </div>
       </Sheet>
     );
 
@@ -2008,6 +2363,14 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
       {renderModal()}
       {votePopupOpen&&renderVotePopup()}
       <Toast toast={toast} C={C}/>
+      <ChatPanel
+        groupId={group.id}
+        userProfile={userProfile}
+        C={C}
+        isOpen={chatOpen}
+        onOpen={()=>setChatOpen(true)}
+        onClose={()=>setChatOpen(false)}
+      />
     </div>
   );
 }
