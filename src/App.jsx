@@ -1004,18 +1004,64 @@ function GroupSwitcher({allGroups,currentGroupId,onSwitch,onGoToGroups,C,onClose
 // ══════════════════════════════════════════════════════════════════
 //  CHAT PANEL
 // ══════════════════════════════════════════════════════════════════
-function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose}){
+
+// Envelope-in-chat-bubble icon (purple tinted, matches image spec)
+const ChatBubbleIcon=({size=40,opacity=1})=>(
+  <svg width={size} height={size} viewBox="0 0 56 56" fill="none" style={{opacity,flexShrink:0}}>
+    {/* Chat bubble body */}
+    <rect x="2" y="2" width="46" height="37" rx="11" fill="rgba(255,255,255,0.28)"/>
+    {/* Tail */}
+    <path d="M2 39 L2 52 L16 39 Z" fill="rgba(255,255,255,0.28)"/>
+    {/* Envelope body */}
+    <rect x="9" y="10" width="30" height="20" rx="3" fill="white"/>
+    {/* Envelope flap */}
+    <path d="M9 13 L24 22 L39 13" stroke="rgba(99,102,241,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Envelope bottom corners */}
+    <path d="M9 29 L18 21" stroke="rgba(99,102,241,0.35)" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M39 29 L30 21" stroke="rgba(99,102,241,0.35)" strokeWidth="1.4" strokeLinecap="round"/>
+  </svg>
+);
+
+// Double-chevron icon (matches the >> image spec)
+const DoubleChevron=({flipped=false,color="white"})=>(
+  <svg width="18" height="22" viewBox="0 0 18 22" fill="none"
+    style={{transform:flipped?"rotate(180deg)":"none",transition:"transform 0.36s cubic-bezier(0.22,1,0.36,1)",flexShrink:0}}>
+    <path d="M2 5 L8 11 L2 17" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 5 L15 11 L9 17" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const fileIcon=type=>{
+  if(!type)return"📎";
+  if(type.startsWith("image/"))return"🖼️";
+  if(type.includes("pdf"))return"📄";
+  if(type.includes("word")||type.includes("document"))return"📝";
+  if(type.includes("sheet")||type.includes("excel")||type.includes("csv"))return"📊";
+  if(type.includes("presentation")||type.includes("powerpoint"))return"📑";
+  if(type.includes("video"))return"🎬";
+  if(type.includes("audio"))return"🎵";
+  if(type.includes("zip")||type.includes("rar")||type.includes("tar")||type.includes("7z"))return"🗜️";
+  return"📎";
+};
+const fmtSize=b=>{
+  if(!b)return"";
+  if(b<1024)return b+"B";
+  if(b<1048576)return(b/1024).toFixed(1)+"KB";
+  return(b/1048576).toFixed(1)+"MB";
+};
+
+function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPhotoUrl,isAdmin,onUpdateChatPhoto}){
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState("");
   const [emojiOpen,setEmojiOpen]=useState(false);
   const [uploading,setUploading]=useState(false);
+  const [uploadingPhoto,setUploadingPhoto]=useState(false);
   const [dragX,setDragX]=useState(0);
-  const [dragging,setDragging]=useState(false);
   const [lastSeen,setLastSeen]=useState(0);
-  const touchStartX=useRef(0);
-  const touchStartY=useRef(0);
   const listRef=useRef(null);
-  const imgRef=useRef(null);
+  const camRef=useRef(null);      // camera / gallery (images only)
+  const attachRef=useRef(null);   // any file attachment
+  const groupPhotoRef=useRef(null); // group chat photo
   const handleRef=useRef(null);
   const panelRef=useRef(null);
   const panelW=typeof window!=="undefined"?Math.min(window.innerWidth,440):440;
@@ -1030,7 +1076,7 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose}){
   // ── Auto-scroll & mark seen ────────────────────────────────────
   useEffect(()=>{
     if(isOpen){
-      setTimeout(()=>{if(listRef.current)listRef.current.scrollTop=listRef.current.scrollHeight;},60);
+      setTimeout(()=>{if(listRef.current)listRef.current.scrollTop=listRef.current.scrollHeight;},80);
       setLastSeen(msgs.length);
     }
   },[isOpen]);
@@ -1046,273 +1092,324 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose}){
     setInput("");setEmojiOpen(false);
     await addDoc(collection(db,"groups",groupId,"messages"),{
       uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,
-      text,imageUrl:null,createdAt:serverTimestamp(),type:"text",
+      text,imageUrl:null,fileUrl:null,createdAt:serverTimestamp(),type:"text",
     });
   };
 
-  // ── Send image ─────────────────────────────────────────────────
-  const sendImg=async file=>{
+  // ── Send any file (image or attachment) ────────────────────────
+  const sendFile=async file=>{
     if(!file)return;
     setUploading(true);
     try{
+      const isImg=file.type.startsWith("image/");
       const sRef=storageRef(storage,`chat/${groupId}/${Date.now()}_${file.name}`);
       await uploadBytes(sRef,file);
       const url=await getDownloadURL(sRef);
       await addDoc(collection(db,"groups",groupId,"messages"),{
         uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,
-        text:"",imageUrl:url,createdAt:serverTimestamp(),type:"image",
+        text:"",
+        imageUrl:isImg?url:null,
+        fileUrl:!isImg?url:null,
+        fileName:file.name,
+        fileSize:file.size,
+        fileType:file.type,
+        createdAt:serverTimestamp(),
+        type:isImg?"image":"file",
       });
-    }catch(e){console.error("Image upload failed:",e);}
+    }catch(e){console.error("Upload failed:",e);}
     setUploading(false);
   };
 
-  // ── Non-passive touch handlers (for drag-to-open) ─────────────
+  // ── Update group chat photo (admin only) ──────────────────────
+  const updateGroupPhoto=async file=>{
+    if(!file||!isAdmin)return;
+    setUploadingPhoto(true);
+    try{
+      const sRef=storageRef(storage,`chat-avatars/${groupId}/group.jpg`);
+      await uploadBytes(sRef,file);
+      const url=await getDownloadURL(sRef);
+      await onUpdateChatPhoto(url);
+    }catch(e){console.error("Group photo failed:",e);}
+    setUploadingPhoto(false);
+  };
+
+  // ── Non-passive touch handlers ─────────────────────────────────
   useEffect(()=>{
     const handle=handleRef.current;
     const panel=panelRef.current;
     if(!handle||!panel)return;
-
     let sX=0,sY=0,active=false;
 
-    const hTStart=e=>{sX=e.touches[0].clientX;sY=e.touches[0].clientY;active=true;};
-    const hTMove=e=>{
+    const hTS=e=>{sX=e.touches[0].clientX;sY=e.touches[0].clientY;active=true;};
+    const hTM=e=>{
       if(!active)return;
       const dx=e.touches[0].clientX-sX;
       const dy=Math.abs(e.touches[0].clientY-sY);
       if(dy>50){active=false;return;}
       if(dx>0&&!isOpen){e.preventDefault();setDragX(Math.min(dx,panelW));}
     };
-    const hTEnd=()=>{
-      if(active){setDragX(v=>{if(v>65)onOpen();return 0;});}
-      active=false;
-    };
+    const hTE=()=>{if(active){setDragX(v=>{if(v>65)onOpen();return 0;});}active=false;};
 
-    const pTStart=e=>{sX=e.touches[0].clientX;active=true;};
-    const pTMove=e=>{
+    const pTS=e=>{sX=e.touches[0].clientX;active=true;};
+    const pTM=e=>{
       if(!active||!isOpen)return;
       const dx=e.touches[0].clientX-sX;
       if(dx<0){e.preventDefault();setDragX(Math.max(dx,-panelW));}
     };
-    const pTEnd=()=>{
-      if(active){setDragX(v=>{if(v<-65)onClose();return 0;});}
-      active=false;
-    };
+    const pTE=()=>{if(active){setDragX(v=>{if(v<-65)onClose();return 0;});}active=false;};
 
-    handle.addEventListener("touchstart",hTStart,{passive:true});
-    handle.addEventListener("touchmove",hTMove,{passive:false});
-    handle.addEventListener("touchend",hTEnd,{passive:true});
-    panel.addEventListener("touchstart",pTStart,{passive:true});
-    panel.addEventListener("touchmove",pTMove,{passive:false});
-    panel.addEventListener("touchend",pTEnd,{passive:true});
+    handle.addEventListener("touchstart",hTS,{passive:true});
+    handle.addEventListener("touchmove",hTM,{passive:false});
+    handle.addEventListener("touchend",hTE,{passive:true});
+    panel.addEventListener("touchstart",pTS,{passive:true});
+    panel.addEventListener("touchmove",pTM,{passive:false});
+    panel.addEventListener("touchend",pTE,{passive:true});
     return()=>{
-      handle.removeEventListener("touchstart",hTStart);
-      handle.removeEventListener("touchmove",hTMove);
-      handle.removeEventListener("touchend",hTEnd);
-      panel.removeEventListener("touchstart",pTStart);
-      panel.removeEventListener("touchmove",pTMove);
-      panel.removeEventListener("touchend",pTEnd);
+      handle.removeEventListener("touchstart",hTS);
+      handle.removeEventListener("touchmove",hTM);
+      handle.removeEventListener("touchend",hTE);
+      panel.removeEventListener("touchstart",pTS);
+      panel.removeEventListener("touchmove",pTM);
+      panel.removeEventListener("touchend",pTE);
     };
   },[isOpen,panelW,onOpen,onClose]);
 
   const panelTranslate=isOpen?Math.min(0,Math.max(dragX,-panelW)):Math.min(Math.max(dragX-panelW,-panelW),0);
-  const backdropOpacity=isOpen?Math.max(0,1+dragX/panelW):Math.min(dragX/panelW,1);
+  const dragProgress=isOpen?Math.max(0,1+dragX/panelW):Math.min(dragX/panelW,1);
+  const backdropOpacity=dragProgress;
 
   return(
     <>
-      {/* ── Drag Handle ──────────────────────────────────────────── */}
+      {/* ── Hidden file inputs ────────────────────────────────────── */}
+      <input ref={camRef} type="file" accept="image/*" style={{display:"none"}}
+        onChange={e=>{if(e.target.files[0])sendFile(e.target.files[0]);e.target.value="";}}/>
+      <input ref={attachRef} type="file" accept="*/*" style={{display:"none"}}
+        onChange={e=>{if(e.target.files[0])sendFile(e.target.files[0]);e.target.value="";}}/>
+      <input ref={groupPhotoRef} type="file" accept="image/*" style={{display:"none"}}
+        onChange={e=>{if(e.target.files[0])updateGroupPhoto(e.target.files[0]);e.target.value="";}}/>
+
+      {/* ── Drag Handle — minimal double-chevron tab ──────────────── */}
       <div
         ref={handleRef}
         onClick={()=>isOpen?onClose():onOpen()}
         style={{
-          position:"fixed",left:0,top:"50%",
-          transform:"translateY(-50%)",
+          position:"fixed",left:0,top:"50%",transform:"translateY(-50%)",
           zIndex:30,display:"flex",flexDirection:"column",alignItems:"center",
-          background:`linear-gradient(160deg,${C.primary},${C.primaryDark})`,
-          borderRadius:"0 18px 18px 0",padding:"16px 10px 14px",gap:6,
+          justifyContent:"center",gap:6,
+          background:`linear-gradient(160deg,${C.primary}E8,${C.primaryDark}E8)`,
+          borderRadius:"0 14px 14px 0",
+          padding:"20px 7px",width:26,
           cursor:"pointer",
-          boxShadow:"3px 0 24px rgba(99,102,241,0.45)",
-          userSelect:"none",WebkitUserSelect:"none",
-          touchAction:"pan-y",
+          boxShadow:"2px 0 18px rgba(99,102,241,0.38)",
+          userSelect:"none",WebkitUserSelect:"none",touchAction:"pan-y",
+          backdropFilter:"blur(6px)",
+          /* Reveal the envelope icon behind it as the panel slides in */
         }}
       >
-        {/* Chat bubble icon */}
-        <span style={{fontSize:20,lineHeight:1}}>💬</span>
-        {/* Unread badge */}
+        {/* Unread dot */}
         {unread>0&&(
           <div style={{
-            background:"#F43F5E",borderRadius:99,minWidth:18,height:18,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:9,fontWeight:900,color:"#fff",padding:"0 4px",
-            border:"2px solid #fff",position:"absolute",top:8,right:-4,
-          }}>{unread>9?"9+":unread}</div>
+            position:"absolute",top:7,right:-4,
+            width:10,height:10,borderRadius:"50%",
+            background:"#F43F5E",border:"2px solid #fff",
+          }}/>
         )}
-        {/* Grip dots */}
-        <div style={{display:"flex",flexDirection:"column",gap:3,margin:"2px 0"}}>
-          {[0,1,2].map(i=>(
-            <div key={i} style={{width:3,height:3,borderRadius:"50%",background:"rgba(255,255,255,0.5)"}}/>
-          ))}
-        </div>
-        {/* Arrow chevron — flips when open */}
-        <svg width="13" height="11" viewBox="0 0 13 11" fill="none"
-          style={{transform:isOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.35s cubic-bezier(0.22,1,0.36,1)"}}>
-          <path d="M1 5.5h11M7 1.5l4 4-4 4" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        {/* Double-chevron >> flips to << when open */}
+        <DoubleChevron flipped={isOpen} color="rgba(255,255,255,0.95)"/>
       </div>
 
       {/* ── Backdrop ─────────────────────────────────────────────── */}
       {(isOpen||dragX!==0)&&(
-        <div
-          onClick={onClose}
-          style={{
-            position:"fixed",inset:0,
-            background:`rgba(13,27,75,${0.52*backdropOpacity})`,
-            backdropFilter:`blur(${4*backdropOpacity}px)`,
-            zIndex:28,
-            pointerEvents:isOpen?"auto":"none",
-            transition:dragging?"none":"background 0.32s,backdrop-filter 0.32s",
-          }}
-        />
+        <div onClick={onClose} style={{
+          position:"fixed",inset:0,
+          background:`rgba(13,27,75,${0.5*backdropOpacity})`,
+          backdropFilter:`blur(${5*backdropOpacity}px)`,
+          zIndex:28,pointerEvents:isOpen?"auto":"none",
+          transition:dragX===0?"background 0.32s,backdrop-filter 0.32s":"none",
+        }}/>
       )}
 
       {/* ── Chat Panel ───────────────────────────────────────────── */}
-      <div
-        ref={panelRef}
-        style={{
-          position:"fixed",top:0,left:0,
-          width:panelW,height:"100dvh",minHeight:"100vh",
-          background:C.bg,zIndex:29,
-          display:"flex",flexDirection:"column",
-          transform:`translateX(${panelTranslate}px)`,
-          transition:dragging?"none":"transform 0.34s cubic-bezier(0.22,1,0.36,1)",
-          boxShadow:"10px 0 60px rgba(99,102,241,0.18)",
-          willChange:"transform",overflowY:"hidden",
-        }}
-      >
-        {/* Header */}
+      <div ref={panelRef} style={{
+        position:"fixed",top:0,left:0,
+        width:panelW,height:"100dvh",minHeight:"100vh",
+        background:C.bg,zIndex:29,
+        display:"flex",flexDirection:"column",
+        transform:`translateX(${panelTranslate}px)`,
+        transition:dragX===0?"transform 0.34s cubic-bezier(0.22,1,0.36,1)":"none",
+        boxShadow:"10px 0 60px rgba(99,102,241,0.2)",
+        willChange:"transform",overflow:"hidden",
+      }}>
+
+        {/* ── Header ─────────────────────────────────────────────── */}
         <div style={{
           background:`linear-gradient(135deg,${C.primary},${C.primaryDark})`,
           paddingTop:"calc(16px + env(safe-area-inset-top, 0px))",
-          paddingBottom:16,paddingLeft:20,paddingRight:16,
-          display:"flex",alignItems:"center",gap:12,flexShrink:0,
-          boxShadow:"0 4px 20px rgba(99,102,241,0.25)",
+          paddingBottom:16,paddingLeft:16,paddingRight:16,
+          display:"flex",alignItems:"center",gap:13,flexShrink:0,
+          boxShadow:"0 4px 24px rgba(99,102,241,0.28)",
         }}>
-          <div style={{width:44,height:44,borderRadius:15,background:"rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,border:"1.5px solid rgba(255,255,255,0.25)"}}>💬</div>
-          <div style={{flex:1}}>
-            <div style={{fontWeight:900,color:"#fff",fontSize:17,letterSpacing:-0.3}}>Group Chat</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.68)",fontWeight:600,marginTop:1}}>{msgs.length} message{msgs.length!==1?"s":""} · swipe left to close</div>
+          {/* Group photo / envelope icon — tap to change if admin */}
+          <div
+            onClick={isAdmin?()=>groupPhotoRef.current?.click():undefined}
+            style={{
+              width:50,height:50,borderRadius:18,flexShrink:0,
+              background:"rgba(255,255,255,0.15)",
+              border:"2px solid rgba(255,255,255,0.3)",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:isAdmin?"pointer":"default",
+              overflow:"hidden",position:"relative",
+            }}
+          >
+            {chatPhotoUrl
+              ? <img src={chatPhotoUrl} alt="group" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              : <ChatBubbleIcon size={38}/>
+            }
+            {isAdmin&&(
+              <div style={{
+                position:"absolute",inset:0,background:"rgba(0,0,0,0)",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                transition:"background 0.18s",
+              }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(0,0,0,0.28)"}
+                onMouseLeave={e=>e.currentTarget.style.background="rgba(0,0,0,0)"}
+              >
+                {uploadingPhoto&&<Spin size={16} color="#fff"/>}
+              </div>
+            )}
           </div>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.28)",borderRadius:13,width:36,height:36,cursor:"pointer",color:"#fff",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800}}>✕</button>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:900,color:"#fff",fontSize:17,letterSpacing:-0.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{groupName||"Group Chat"}</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.65)",fontWeight:600,marginTop:2}}>
+              {msgs.length} message{msgs.length!==1?"s":""}
+              {isAdmin&&<span style={{opacity:0.75}}> · tap photo to change</span>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.28)",borderRadius:13,width:36,height:36,cursor:"pointer",color:"#fff",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,flexShrink:0}}>✕</button>
         </div>
 
-        {/* Messages list */}
-        <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"14px 14px 6px",display:"flex",flexDirection:"column",gap:10,WebkitOverflowScrolling:"touch"}}>
+        {/* ── Messages list ───────────────────────────────────────── */}
+        <div ref={listRef} style={{flex:1,overflowY:"auto",padding:"14px 14px 8px",display:"flex",flexDirection:"column",gap:8,WebkitOverflowScrolling:"touch"}}>
           {msgs.length===0&&(
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,padding:"80px 20px",textAlign:"center"}}>
-              <div style={{fontSize:60,lineHeight:1}}>💬</div>
-              <div style={{fontWeight:900,color:C.text,fontSize:17}}>Start the conversation!</div>
-              <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Say hello, share updates,<br/>drop an emoji or a photo 📷</div>
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:"80px 24px",textAlign:"center"}}>
+              <ChatBubbleIcon size={72} opacity={0.18}/>
+              <div style={{fontWeight:900,color:C.text,fontSize:18}}>Start the conversation!</div>
+              <div style={{fontSize:13,color:C.muted,lineHeight:1.75}}>
+                Say hello, share files, images,<br/>drop emojis or photos 📷
+              </div>
             </div>
           )}
           {msgs.map((msg,idx)=>{
             const isMe=msg.uid===userProfile.uid;
-            const prevMsg=msgs[idx-1];
-            const showAvatar=!isMe&&(!prevMsg||prevMsg.uid!==msg.uid);
-            const showName=!isMe&&showAvatar;
+            const prev=msgs[idx-1];
+            const showHeader=!isMe&&(!prev||prev.uid!==msg.uid);
             const ts=msg.createdAt?.toDate?fmtDT(msg.createdAt.toDate().toISOString()):"";
             return(
-              <div key={msg.id} style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,alignItems:"flex-end",marginTop:showAvatar&&!isMe?6:0}}>
-                {/* Avatar — only for others, only on first consecutive msg */}
+              <div key={msg.id} style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,alignItems:"flex-end",marginTop:showHeader?8:2}}>
+                {/* Left avatar (others only, first in a run) */}
                 {!isMe&&(
-                  <div style={{width:32,height:32,borderRadius:11,background:C.primaryLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,visibility:showAvatar?"visible":"hidden"}}>{msg.avatar}</div>
+                  <div style={{
+                    width:34,height:34,borderRadius:12,
+                    background:`linear-gradient(135deg,${C.primaryLight},${C.primaryMid})`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:18,flexShrink:0,
+                    border:`1.5px solid ${C.border}`,
+                    visibility:showHeader?"visible":"hidden",
+                  }}>{msg.avatar}</div>
                 )}
                 <div style={{maxWidth:"74%",minWidth:50}}>
-                  {showName&&<div style={{fontSize:10,color:C.textSub,fontWeight:700,marginBottom:4,paddingLeft:4}}>{msg.name}</div>}
+                  {showHeader&&(
+                    <div style={{fontSize:11,color:C.textSub,fontWeight:700,marginBottom:4,paddingLeft:isMe?0:4,textAlign:isMe?"right":"left"}}>{msg.name}</div>
+                  )}
+                  {/* Bubble */}
                   <div style={{
                     background:isMe?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:C.white,
                     color:isMe?"#fff":C.text,
                     borderRadius:isMe?"18px 18px 5px 18px":"18px 18px 18px 5px",
-                    padding:msg.type==="image"?"5px":"10px 14px",
+                    padding:msg.type==="text"?"10px 14px":"5px",
                     border:isMe?"none":`1px solid ${C.border}`,
-                    fontSize:14,lineHeight:1.55,wordBreak:"break-word",
-                    boxShadow:isMe?"0 3px 14px rgba(99,102,241,0.28)":"0 1px 5px rgba(0,0,0,0.06)",
-                    overflowWrap:"anywhere",
+                    fontSize:14,lineHeight:1.55,wordBreak:"break-word",overflowWrap:"anywhere",
+                    boxShadow:isMe?"0 3px 14px rgba(99,102,241,0.3)":"0 1px 5px rgba(0,0,0,0.06)",
                   }}>
+                    {/* Image */}
                     {msg.type==="image"&&msg.imageUrl&&(
-                      <img src={msg.imageUrl} alt="shared" style={{width:"100%",borderRadius:14,display:"block",maxHeight:260,objectFit:"cover"}}/>
+                      <img src={msg.imageUrl} alt="img" style={{width:"100%",borderRadius:14,display:"block",maxHeight:260,objectFit:"cover"}}/>
                     )}
+                    {/* File attachment card */}
+                    {msg.type==="file"&&msg.fileUrl&&(
+                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
+                        style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",textDecoration:"none",color:isMe?"#fff":C.text}}>
+                        <div style={{fontSize:30,flexShrink:0,lineHeight:1}}>{fileIcon(msg.fileType)}</div>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontWeight:700,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160}}>{msg.fileName||"File"}</div>
+                          <div style={{fontSize:11,opacity:0.65,marginTop:2}}>{fmtSize(msg.fileSize)}</div>
+                        </div>
+                        <div style={{marginLeft:"auto",flexShrink:0,fontSize:13,opacity:0.7}}>↓</div>
+                      </a>
+                    )}
+                    {/* Text */}
                     {msg.text&&<span style={{whiteSpace:"pre-wrap"}}>{msg.text}</span>}
                   </div>
-                  {ts&&<div style={{fontSize:10,color:C.muted,marginTop:4,textAlign:isMe?"right":"left",paddingLeft:4,paddingRight:4}}>{ts}</div>}
+                  {ts&&<div style={{fontSize:10,color:C.muted,marginTop:3,textAlign:isMe?"right":"left",paddingLeft:4,paddingRight:4}}>{ts}</div>}
                 </div>
               </div>
             );
           })}
           {uploading&&(
-            <div style={{display:"flex",justifyContent:"flex-end",gap:8,alignItems:"flex-end"}}>
-              <div style={{background:C.primaryLight,borderRadius:"18px 18px 5px 18px",padding:"12px 16px",display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.primary,fontWeight:600}}>
-                <Spin size={14} color={C.primary}/> Uploading image...
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <div style={{background:C.primaryLight,borderRadius:"16px 16px 4px 16px",padding:"10px 16px",display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.primary,fontWeight:600}}>
+                <Spin size={13} color={C.primary}/> Uploading…
               </div>
             </div>
           )}
         </div>
 
-        {/* Emoji Picker */}
+        {/* ── Emoji Picker ────────────────────────────────────────── */}
         {emojiOpen&&(
           <div style={{background:C.white,borderTop:`1.5px solid ${C.border}`,padding:"10px 12px",display:"flex",flexWrap:"wrap",gap:3,maxHeight:175,overflowY:"auto",flexShrink:0}}>
             {CHAT_EMOJIS.map(e=>(
-              <button key={e} onClick={()=>setInput(v=>v+e)} style={{fontSize:23,padding:"5px 4px",background:"none",border:"none",cursor:"pointer",borderRadius:8,lineHeight:1,flexShrink:0}}>{e}</button>
+              <button key={e} onClick={()=>setInput(v=>v+e)} style={{fontSize:22,padding:"5px 4px",background:"none",border:"none",cursor:"pointer",borderRadius:8,lineHeight:1,flexShrink:0}}>{e}</button>
             ))}
           </div>
         )}
 
-        {/* Input Bar */}
+        {/* ── Input Bar ───────────────────────────────────────────── */}
         <div style={{
           background:C.white,borderTop:`1px solid ${C.border}`,
-          padding:"10px 12px",
+          padding:"10px 10px",
           paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",
-          display:"flex",alignItems:"flex-end",gap:8,flexShrink:0,
+          display:"flex",alignItems:"flex-end",gap:7,flexShrink:0,
         }}>
-          <input ref={imgRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
-            onChange={e=>{if(e.target.files[0])sendImg(e.target.files[0]);e.target.value="";}}
-          />
-          {/* Image button */}
-          <button onClick={()=>imgRef.current?.click()} disabled={uploading}
-            style={{width:40,height:40,borderRadius:13,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,cursor:"pointer",flexShrink:0,opacity:uploading?0.5:1,transition:"opacity 0.2s"}}
-          >📷</button>
-          {/* Emoji toggle */}
+          {/* Camera / gallery (images) */}
+          <button onClick={()=>camRef.current?.click()} disabled={uploading}
+            title="Photo"
+            style={{width:38,height:38,borderRadius:12,background:C.primaryLight,border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0,opacity:uploading?0.45:1}}>
+            📷
+          </button>
+          {/* Attachment — any file */}
+          <button onClick={()=>attachRef.current?.click()} disabled={uploading}
+            title="Attach file"
+            style={{width:38,height:38,borderRadius:12,background:C.bg,border:`1.5px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,opacity:uploading?0.45:1}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke={C.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          {/* Emoji */}
           <button onClick={()=>setEmojiOpen(o=>!o)}
-            style={{width:40,height:40,borderRadius:13,background:emojiOpen?C.primaryLight:C.bg,border:`1.5px solid ${emojiOpen?C.primary:C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,cursor:"pointer",flexShrink:0,transition:"all 0.18s"}}
-          >😊</button>
+            style={{width:38,height:38,borderRadius:12,background:emojiOpen?C.primaryLight:C.bg,border:`1.5px solid ${emojiOpen?C.primary:C.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer",flexShrink:0,transition:"all 0.18s"}}>
+            😊
+          </button>
           {/* Text input */}
-          <div style={{flex:1,background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:22,padding:"9px 16px",minHeight:40,display:"flex",alignItems:"center"}}>
-            <textarea
-              value={input}
-              onChange={e=>setInput(e.target.value)}
+          <div style={{flex:1,background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:20,padding:"9px 14px",display:"flex",alignItems:"center",minHeight:40}}>
+            <textarea value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}}}
-              placeholder="Message..."
-              rows={1}
-              style={{
-                width:"100%",background:"none",border:"none",outline:"none",
-                resize:"none",fontSize:14,color:C.text,
-                fontFamily:"'Inter',sans-serif",lineHeight:1.5,
-                display:"block",WebkitUserSelect:"text",userSelect:"text",
-                maxHeight:88,overflowY:"auto",
-              }}
+              placeholder="Message…" rows={1}
+              style={{width:"100%",background:"none",border:"none",outline:"none",resize:"none",fontSize:14,color:C.text,fontFamily:"'Inter',sans-serif",lineHeight:1.5,display:"block",WebkitUserSelect:"text",userSelect:"text",maxHeight:88,overflowY:"auto"}}
             />
           </div>
-          {/* Send button */}
-          <button
-            onClick={sendMsg}
-            disabled={!input.trim()}
-            style={{
-              width:44,height:44,borderRadius:"50%",border:"none",
-              background:input.trim()?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:C.primaryMid,
-              display:"flex",alignItems:"center",justifyContent:"center",
-              cursor:input.trim()?"pointer":"default",flexShrink:0,
-              transition:"all 0.18s",
-              boxShadow:input.trim()?"0 4px 16px rgba(99,102,241,0.42)":"none",
-            }}
-          >
+          {/* Send */}
+          <button onClick={sendMsg} disabled={!input.trim()}
+            style={{width:42,height:42,borderRadius:"50%",border:"none",background:input.trim()?`linear-gradient(135deg,${C.primary},${C.primaryDark})`:C.primaryMid,display:"flex",alignItems:"center",justifyContent:"center",cursor:input.trim()?"pointer":"default",flexShrink:0,transition:"all 0.18s",boxShadow:input.trim()?"0 4px 16px rgba(99,102,241,0.4)":"none"}}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M16.5 1.5L8.5 9.5M16.5 1.5L11 16.5L8.5 9.5M16.5 1.5L1.5 6.5L8.5 9.5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -2370,6 +2467,10 @@ function TreasuryApp({group,userProfile,allGroups=[],onSwitchGroup,onBack,onUpda
         isOpen={chatOpen}
         onOpen={()=>setChatOpen(true)}
         onClose={()=>setChatOpen(false)}
+        groupName={gData?.name||"Group Chat"}
+        chatPhotoUrl={gData?.chatPhotoUrl||null}
+        isAdmin={!!isAdmin}
+        onUpdateChatPhoto={async url=>upGroup({chatPhotoUrl:url})}
       />
     </div>
   );
