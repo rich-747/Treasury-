@@ -2583,13 +2583,24 @@ export default function App(){
     if(outcome==="accepted"){setInstallBanner(false);setInstallPrompt(null);}
   };
 
+  const [authTimeout,setAuthTimeout]=useState(false);
   useEffect(()=>{
+    // Safety net — if auth never resolves (no network), unblock after 15s
+    const tId=setTimeout(()=>setAuthTimeout(true),15000);
     const unsub=onAuthStateChanged(auth,async user=>{
-      if(user){setAuthUser(user);const snap=await getDoc(doc(db,"users",user.uid));if(snap.exists())setUserProfile(snap.data());else setUserProfile(null);}
-      else{setAuthUser(null);setUserProfile(null);setSelectedGroup(null);setAllGroups([]);}
-      setCheckingAuth(false);
+      clearTimeout(tId);
+      setAuthTimeout(false);
+      if(user){
+        setAuthUser(user);
+        setCheckingAuth(false); // unblock UI immediately; profile loads in background
+        try{const snap=await getDoc(doc(db,"users",user.uid));if(snap.exists())setUserProfile(snap.data());else setUserProfile(null);}
+        catch{setUserProfile(null);}
+      }else{
+        setAuthUser(null);setUserProfile(null);setSelectedGroup(null);setAllGroups([]);
+        setCheckingAuth(false);
+      }
     });
-    return()=>unsub();
+    return()=>{unsub();clearTimeout(tId);};
   },[]);
 
   useEffect(()=>{
@@ -2616,12 +2627,21 @@ export default function App(){
     </div>
   ):null;
 
-  if(checkingAuth)return(
+  if(checkingAuth&&!authTimeout)return(
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#0d1b6e,#10B981)",flexDirection:"column",gap:20}}>
       <style>{GS(C,dark)}</style>
       <div style={{width:74,height:74,borderRadius:24,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38}}>💰</div>
       <Spin size={38} color="white"/>
       <div style={{color:"rgba(255,255,255,0.65)",fontSize:14,fontWeight:700}}>Loading Treasury...</div>
+    </div>
+  );
+  if(authTimeout||(!checkingAuth&&authUser===null&&checkingAuth))return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#0d1b6e,#10B981)",flexDirection:"column",gap:20,padding:"0 24px",textAlign:"center"}}>
+      <style>{GS(C,dark)}</style>
+      <div style={{width:74,height:74,borderRadius:24,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:38}}>💰</div>
+      <div style={{color:"#fff",fontSize:18,fontWeight:800}}>Connection is slow</div>
+      <div style={{color:"rgba(255,255,255,0.7)",fontSize:13,maxWidth:280,lineHeight:1.5}}>Treasury is having trouble connecting. Please check your internet and try again.</div>
+      <button onClick={()=>window.location.reload()} style={{marginTop:8,background:"rgba(255,255,255,0.18)",border:"2px solid rgba(255,255,255,0.4)",borderRadius:14,padding:"13px 36px",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"inherit",letterSpacing:0.3}}>Retry</button>
     </div>
   );
   if(!authUser)return <>{InstallBanner}<AuthScreen onAuth={setAuthUser}/></>;
