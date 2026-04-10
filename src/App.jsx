@@ -10,7 +10,7 @@ import {
   doc, setDoc, getDoc, collection, addDoc, onSnapshot,
   updateDoc, arrayUnion, serverTimestamp, query, where, orderBy, limit, getDocs, deleteDoc
 } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref as storageRef, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { getToken, onMessage } from "firebase/messaging";
 
 // ── FCM VAPID key — get from Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
@@ -1050,11 +1050,31 @@ const fmtSize=b=>{
   return(b/1048576).toFixed(1)+"MB";
 };
 
+// Compress image to JPEG using canvas — reduces 5 MB phone photos to ~150–300 KB
+const compressImage=(file,maxPx=1200,quality=0.78)=>new Promise(resolve=>{
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      if(w>h&&w>maxPx){h=Math.round(h*maxPx/w);w=maxPx;}
+      else if(h>maxPx){w=Math.round(w*maxPx/h);h=maxPx;}
+      const canvas=document.createElement("canvas");
+      canvas.width=w;canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      canvas.toBlob(blob=>resolve(blob||file),"image/jpeg",quality);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
 function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPhotoUrl,isAdmin,onUpdateChatPhoto}){
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState("");
   const [emojiOpen,setEmojiOpen]=useState(false);
   const [uploading,setUploading]=useState(false);
+  const [uploadProgress,setUploadProgress]=useState(0);
   const [uploadingPhoto,setUploadingPhoto]=useState(false);
   const [dragX,setDragX]=useState(0);
   const [lastSeen,setLastSeen]=useState(0);
@@ -1096,14 +1116,25 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPh
     });
   };
 
-  // ── Send any file (image or attachment) ────────────────────────
+  // ── Send any file (image compressed, others as-is) ─────────────
   const sendFile=async file=>{
     if(!file)return;
-    setUploading(true);
+    setUploading(true);setUploadProgress(0);
     try{
       const isImg=file.type.startsWith("image/");
-      const sRef=storageRef(storage,`chat/${groupId}/${Date.now()}_${file.name}`);
-      await uploadBytes(sRef,file);
+      // Compress images before upload: 5 MB phone photo → ~150–300 KB
+      const payload=isImg?await compressImage(file,1200,0.78):file;
+      const fname=isImg?`img_${Date.now()}.jpg`:`${Date.now()}_${file.name}`;
+      const sRef=storageRef(storage,`chat/${groupId}/${fname}`);
+      // Resumable upload with live progress
+      await new Promise((res,rej)=>{
+        const task=uploadBytesResumable(sRef,payload,{contentType:isImg?"image/jpeg":file.type});
+        task.on("state_changed",
+          snap=>setUploadProgress(Math.round(snap.bytesTransferred/snap.totalBytes*100)),
+          rej,
+          res
+        );
+      });
       const url=await getDownloadURL(sRef);
       await addDoc(collection(db,"groups",groupId,"messages"),{
         uid:userProfile.uid,name:userProfile.name,avatar:userProfile.avatar,
@@ -1111,13 +1142,13 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPh
         imageUrl:isImg?url:null,
         fileUrl:!isImg?url:null,
         fileName:file.name,
-        fileSize:file.size,
-        fileType:file.type,
+        fileSize:payload.size??file.size,
+        fileType:isImg?"image/jpeg":file.type,
         createdAt:serverTimestamp(),
         type:isImg?"image":"file",
       });
     }catch(e){console.error("Upload failed:",e);}
-    setUploading(false);
+    setUploading(false);setUploadProgress(0);
   };
 
   // ── Update group chat photo (admin only) ──────────────────────
@@ -1125,8 +1156,10 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPh
     if(!file||!isAdmin)return;
     setUploadingPhoto(true);
     try{
+      // Compress group photo to max 512 px — plenty for a small avatar
+      const payload=await compressImage(file,512,0.85);
       const sRef=storageRef(storage,`chat-avatars/${groupId}/group.jpg`);
-      await uploadBytes(sRef,file);
+      await uploadBytes(sRef,payload,{contentType:"image/jpeg"});
       const url=await getDownloadURL(sRef);
       await onUpdateChatPhoto(url);
     }catch(e){console.error("Group photo failed:",e);}
@@ -1357,8 +1390,15 @@ function ChatPanel({groupId,userProfile,C,isOpen,onOpen,onClose,groupName,chatPh
           })}
           {uploading&&(
             <div style={{display:"flex",justifyContent:"flex-end"}}>
-              <div style={{background:C.primaryLight,borderRadius:"16px 16px 4px 16px",padding:"10px 16px",display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.primary,fontWeight:600}}>
-                <Spin size={13} color={C.primary}/> Uploading…
+              <div style={{background:C.primaryLight,borderRadius:"16px 16px 4px 16px",padding:"10px 16px",minWidth:160,display:"flex",flexDirection:"column",gap:7}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.primary,fontWeight:700}}>
+                  <Spin size={13} color={C.primary}/>
+                  {uploadProgress>0?`Uploading… ${uploadProgress}%`:"Compressing…"}
+                </div>
+                {/* Progress bar */}
+                <div style={{height:4,borderRadius:99,background:C.primaryMid,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${uploadProgress}%`,background:C.primary,borderRadius:99,transition:"width 0.3s"}}/>
+                </div>
               </div>
             </div>
           )}
